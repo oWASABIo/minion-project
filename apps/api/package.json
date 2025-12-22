@@ -1,0 +1,23 @@
+{
+  "name": "@minions/api",
+  "private": true,
+  "scripts": {
+    "dev": "NITRO_HOST=127.0.0.1 NITRO_PORT=3001 nitro dev",
+    "build": "nitro build",
+    "preview": "node .output/server/index.mjs",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "archiver": "^7.0.1",
+    "h3": "^1.11.1"
+  },
+  "devDependencies": {
+    "@minions/shared": "*",
+    "@types/archiver": "^7.0.0",
+    "@types/node": "^25.0.3",
+    "nitropack": "^2.9.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.16"
+  }
+}

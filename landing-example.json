@@ -1,0 +1,101 @@
+{
+  "template": "landing",
+  "site": {
+    "siteName": "MINIONS: AI Builder",
+    "tagline": "AI-powered websites in minutes",
+    "primaryColor": "#4f46e5"
+  },
+  "backend": {
+    "cms": "wordpress",
+    "wordpress": {
+      "baseUrl": "",
+      "restBase": "/wp-json/wp/v2"
+    }
+  },
+  "sections": [
+    {
+      "id": "hero-main",
+      "type": "hero",
+      "eyebrow": "NEW ERA OF WEB CREATION",
+      "headline": "Build stunning AI-powered websites in minutes with MINIONS.",
+      "subheadline": "Leverage cutting-edge AI technology to create, customize, and launch your website effortlessly.",
+      "primaryCta": {
+        "label": "Get Started",
+        "href": "#get-started"
+      },
+      "secondaryCta": {
+        "label": "Examples",
+        "href": "#examples"
+      }
+    },
+    {
+      "id": "features-dev",
+      "type": "features",
+      "title": "For developers team",
+      "subtitle": "Designed to be production-ready and extensible.",
+      "items": [
+        {
+          "title": "Nuxt 3 Ready",
+          "description": "Built with the latest Nuxt 3 for optimal performance and scalability."
+        },
+        {
+          "title": "AI Content & Layout Generation",
+          "description": "Utilize AI to generate stunning designs and layouts tailored to your needs."
+        },
+        {
+          "title": "Easy to use",
+          "description": "Download source code and deploy it on your own infrastructure with ease."
+        }
+      ]
+    },
+    {
+      "id": "testimonials-early",
+      "type": "testimonials",
+      "title": "Testimonials from Early Users",
+      "items": [
+        {
+          "quote": "I used to spend days setting up a project. Now I get a solid Nuxt starter in minutes.",
+          "name": "A",
+          "role": "Full-stack Developer"
+        },
+        {
+          "quote": "Clients love seeing a working prototype on the first call.",
+          "name": "B",
+          "role": "Owner, small agency"
+        }
+      ]
+    },
+    {
+      "id": "faq-main",
+      "type": "faq",
+      "title": "Frequently Asked Questions",
+      "items": [
+        {
+          "question": "How does the AI content generation work?",
+          "answer": "Our AI analyzes your input and generates layouts and content that are tailored to your specific needs and preferences."
+        }
+      ]
+    },
+    {
+      "id": "blog-latest",
+      "type": "blogList",
+      "title": "Latest from the blog",
+      "layout": "grid",
+      "maxItems": 3,
+      "source": {
+        "template": "wordpress",
+        "endpoint": "/wp-json/wp/v2/posts?per_page=3&_embed"
+      }
+    },
+    {
+      "id": "cta-bottom",
+      "type": "cta",
+      "headline": "Ready to build your AI-powered website?",
+      "subheadline": "Start with a Nuxt starter that you can fully control and extend.",
+      "primaryCta": {
+        "label": "Start now",
+        "href": "#get-started"
+      }
+    }
+  ]
+}
