@@ -8,7 +8,11 @@ import {
 import { getRandomTemplate } from "~/domain/generator/template-registry";
 import { parsePromptPattern } from "~/domain/generator/prompt-pattern";
 import { normalizePageConfig } from "~/domain/generator/normalize";
-import { useGemini, generateContentWithRetry } from "~/domain/generator/gemini";
+import {
+  useGemini,
+  generateContentWithRetry,
+  generateContentStreamWithRetry,
+} from "~/domain/generator/gemini";
 import { gettemplateSpec } from "../../domain/generator/template-spec";
 import { validatePageConfig } from "~/domain/generator/validate";
 
@@ -20,6 +24,7 @@ type Body = {
   seed?: number;
   wordpressBaseUrl?: string;
   wordpressRestBase?: string;
+  stream?: boolean;
 };
 
 // Helper: Attempt to clean up JSON if model returns markdown fences
@@ -95,13 +100,58 @@ export default defineEventHandler(async (event) => {
     let note = "";
 
     try {
+      // -------------------------
+      // X. STREAMING MODE (Live Only)
+      // -------------------------
+      if (body.stream && wantLive && hasKey) {
+        // Construct detailed prompt (Single Page Focus for Streaming)
+        const templateSpec = gettemplateSpec(template);
+        const { systemPrompt } = await import("../../domain/generator/prompts");
+
+        const fullPrompt = [
+          "System:",
+          systemPrompt(templateSpec, stack),
+          "---",
+          "User Context:",
+          `Brief: ${briefRaw}`,
+          `Directives: ${JSON.stringify(directives || {})}`,
+          cleanBrief ? `Clean Intent: ${cleanBrief}` : "",
+        ].join("\n");
+
+        // Use H3 sendStream
+        return sendStream(
+          event,
+          new ReadableStream({
+            async start(controller) {
+              try {
+                const result = await generateContentStreamWithRetry(fullPrompt);
+                for await (const chunk of result.stream) {
+                  const chunkText = chunk.text();
+                  controller.enqueue(new TextEncoder().encode(chunkText));
+                }
+                controller.close();
+              } catch (err: any) {
+                console.error("[Streaming] Error:", err);
+                // Attempt to send error as text if stream is open, else close
+                try {
+                  controller.enqueue(
+                    new TextEncoder().encode(`\n\n[ERROR]: ${err.message}`)
+                  );
+                } catch {}
+                controller.close();
+              }
+            },
+          })
+        );
+      }
+
       // A. MOCK MODE (Explicit or No Key)
       if (mode === "mock" || (!hasKey && wantLive)) {
         finalMode = "mock";
         note =
           !hasKey && wantLive
-            ? "No Gemini key available. Fallback to mock."
-            : "Mock mode requested.";
+            ? "Falling back to Mock Mode (No valid API Key found)."
+            : "Mock Mode requested.";
 
         rawProject = buildMockProject({
           template,

@@ -919,7 +919,22 @@ const plugins = [
   
 ];
 
-const assets = {};
+const assets = {
+  "/index.mjs": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"1e196-DGqSjjXVCBh4j4jBX0f6pdWdQlY\"",
+    "mtime": "2025-12-23T05:23:44.736Z",
+    "size": 123286,
+    "path": "index.mjs"
+  },
+  "/index.mjs.map": {
+    "type": "application/json",
+    "etag": "\"78b10-6sfWXAb2ipwXgBXwmLx5pC6ohX8\"",
+    "mtime": "2025-12-23T05:23:44.736Z",
+    "size": 494352,
+    "path": "index.mjs.map"
+  }
+};
 
 function readAsset (id) {
   const serverDir = dirname$1(fileURLToPath(globalThis._importMeta_.url));
@@ -3234,6 +3249,41 @@ function rotateKey() {
     `[Gemini] Rotating key from index ${prevIndex} to ${currentIndex}`
   );
 }
+async function generateContentStreamWithRetry(prompt, maxRetries = 3) {
+  initKeys();
+  const totalAttempts = Math.max(genAIInstances.length * 2, maxRetries);
+  let lastError = null;
+  for (let i = 0; i < totalAttempts; i++) {
+    try {
+      const model = getCurrentModel();
+      const result = await model.generateContentStream(prompt);
+      return result;
+    } catch (err) {
+      lastError = err;
+      const msg = err.message || "";
+      const isQuota = msg.includes("429") || msg.includes("Quota") || msg.includes("Resource has been exhausted");
+      const isServer = msg.includes("503") || msg.includes("Overloaded") || msg.includes("500");
+      const isInvalidKey = msg.includes("API key not valid") || msg.includes("API_KEY_INVALID");
+      if (isQuota) {
+        console.warn(
+          `[Gemini] Quota exceeded on key index ${currentIndex}. Rotating...`
+        );
+        rotateKey();
+      } else if (isInvalidKey) {
+        console.warn(
+          `[Gemini] Invalid API Key detected at index ${currentIndex}. Rotating to next key...`
+        );
+        rotateKey();
+      } else if (isServer) {
+        console.warn(`[Gemini] Server error (503). Retrying...`);
+        await new Promise((r) => setTimeout(r, 1e3 * (i + 1)));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastError || new Error("Gemini streaming failed after retries.");
+}
 async function generateContentWithRetry(prompt, maxRetries = 3) {
   initKeys();
   const totalAttempts = Math.max(genAIInstances.length * 2, maxRetries);
@@ -3378,9 +3428,48 @@ const generatePage_post = defineEventHandler(async (event) => {
     let finalMode = "mock";
     let note = "";
     try {
+      if (body.stream && wantLive && hasKey) {
+        const templateSpec = gettemplateSpec(template);
+        const { systemPrompt } = await Promise.resolve().then(function () { return prompts; });
+        const fullPrompt = [
+          "System:",
+          systemPrompt(templateSpec, stack),
+          "---",
+          "User Context:",
+          `Brief: ${briefRaw}`,
+          `Directives: ${JSON.stringify(directives || {})}`,
+          cleanBrief ? `Clean Intent: ${cleanBrief}` : ""
+        ].join("\n");
+        return sendStream(
+          event,
+          new ReadableStream({
+            async start(controller) {
+              try {
+                const result = await generateContentStreamWithRetry(fullPrompt);
+                for await (const chunk of result.stream) {
+                  const chunkText = chunk.text();
+                  controller.enqueue(new TextEncoder().encode(chunkText));
+                }
+                controller.close();
+              } catch (err) {
+                console.error("[Streaming] Error:", err);
+                try {
+                  controller.enqueue(
+                    new TextEncoder().encode(`
+
+[ERROR]: ${err.message}`)
+                  );
+                } catch {
+                }
+                controller.close();
+              }
+            }
+          })
+        );
+      }
       if (mode === "mock" || !hasKey && wantLive) {
         finalMode = "mock";
-        note = !hasKey && wantLive ? "No Gemini key available. Fallback to mock." : "Mock mode requested.";
+        note = !hasKey && wantLive ? "Falling back to Mock Mode (No valid API Key found)." : "Mock Mode requested.";
         rawProject = buildMockProject({
           template,
           brief: cleanBrief || briefRaw,
@@ -3744,5 +3833,52 @@ const index = eventHandler(() => {
 const index$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   default: index
+});
+
+function systemPrompt(spec, stack) {
+  return [
+    "Role: AI Web Architect.",
+    "Task: Generate a JSON object matching the PageConfig schema.",
+    "Constraints:",
+    "- Output strictly JSON. No markdown fences.",
+    "- Use section types: hero, features, testimonials, faq, blogList, cta, pricing, stats, team.",
+    `- Stack: ${stack}. Adjust content/structure conventions accordingly.`,
+    `- Template: ${spec.label}.`,
+    "",
+    "Schema Definition (Simplified):",
+    "{",
+    '  "meta": { "title": string, "description": string, "stack": string, "generatedAt": string, "mode": "mock" | "legacy" | "auto" },',
+    '  "site": { "name": string, "logo": string, "themeMode": "light" | "dark", "primaryColor": string, "fontFamily": string },',
+    '  "pages": {',
+    '    "home": {',
+    '      "id": "home",',
+    '      "slug": "/",',
+    '      "sections": [',
+    '        { "id": string, "type": "hero" | ... , "content": { ... } }',
+    "      ]",
+    "    }",
+    "  }",
+    "}",
+    "",
+    "Allowed Section Content:",
+    "- Hero: tag, title, description, actions: [{ label, link, variant: 'primary'|'secondary' }], image? (use placehold.co)",
+    "- Features: title, subtitle, items: [{ title, description, icon (lucide-react name) }]",
+    "- Testimonials: title, items: [{ name, role, content, avatar }]",
+    "- Pricing: title, description, plans: [{ name, price, features: [], cta: {}, popular: boolean }]",
+    "- Team: title, description, members: [{ name, role, avatar, bio }]",
+    "- Stats: items: [{ label, value, description? }]",
+    "- BlogList: title, source: { endpoint? } (If WP URL provided, use it. Else mock.)",
+    "",
+    "Instructions:",
+    "1. Respect User Brief implicitly.",
+    "2. Generate realistic, creative copy. No 'Lorem Ipsum'.",
+    "3. Ensure strictly valid JSON.",
+    "4. Do NOT output markdown formatting (```json)."
+  ].join("\n");
+}
+
+const prompts = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  systemPrompt: systemPrompt
 });
 //# sourceMappingURL=index.mjs.map

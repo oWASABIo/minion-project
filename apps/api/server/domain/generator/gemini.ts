@@ -72,6 +72,61 @@ export function useGemini() {
  * Robust generation with Key Rotation and Retry policies.
  * Retries on 429 (Quota) and 503 (Overload).
  */
+export async function generateContentStreamWithRetry(
+  prompt: string,
+  maxRetries = 3
+) {
+  initKeys();
+
+  let attempt = 0;
+  const totalAttempts = Math.max(genAIInstances.length * 2, maxRetries);
+  let lastError: any = null;
+
+  for (let i = 0; i < totalAttempts; i++) {
+    try {
+      const model = getCurrentModel();
+      const result = await model.generateContentStream(prompt);
+      return result; // Returns a StreamResult
+    } catch (err: any) {
+      lastError = err;
+      const msg = err.message || "";
+      const isQuota =
+        msg.includes("429") ||
+        msg.includes("Quota") ||
+        msg.includes("Resource has been exhausted");
+      const isServer =
+        msg.includes("503") ||
+        msg.includes("Overloaded") ||
+        msg.includes("500");
+      const isInvalidKey =
+        msg.includes("API key not valid") || msg.includes("API_KEY_INVALID");
+
+      if (isQuota) {
+        console.warn(
+          `[Gemini] Quota exceeded on key index ${currentIndex}. Rotating...`
+        );
+        rotateKey();
+      } else if (isInvalidKey) {
+        console.warn(
+          `[Gemini] Invalid API Key detected at index ${currentIndex}. Rotating to next key...`
+        );
+        rotateKey();
+      } else if (isServer) {
+        console.warn(`[Gemini] Server error (503). Retrying...`);
+        await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  throw lastError || new Error("Gemini streaming failed after retries.");
+}
+
+/**
+ * Robust generation with Key Rotation and Retry policies.
+ * Retries on 429 (Quota) and 503 (Overload).
+ */
 export async function generateContentWithRetry(prompt: string, maxRetries = 3) {
   initKeys();
 

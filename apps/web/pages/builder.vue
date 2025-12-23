@@ -20,17 +20,34 @@ import PreviewFrame from "~/components/builder/PreviewFrame.vue";
 import BaseButton from "~/components/ui/BaseButton.vue";
 import ConfirmModal from "~/components/ui/ConfirmModal.vue";
 import draggableComponent from "vuedraggable";
+import { parseAIResponse } from "~/utils/ai-parser";
+import { useBuilderStore } from "~/stores/builder";
+import { storeToRefs } from "pinia";
+
 const draggable = draggableComponent as any;
+
+// Store
+const store = useBuilderStore();
+const {
+  projectConfig: generatedConfig, // Alias for backward compatibility
+  currentPageConfig,
+  selectedSectionId,
+  selectedSection,
+  historyIndex,
+  history,
+  hasResult,
+  viewport,
+  currentPageId,
+  isEditMode,
+  generation, // [NEW] Generation Config
+} = storeToRefs(store);
 
 // Computed for Drag & Drop
 const currentSections = computed({
-  get: () => currentPageConfig.value?.sections || [],
+  get: () => store.currentSections,
   set: (newSections: Section[]) => {
-    if (!generatedConfig.value?.pages || !currentPageId.value) return;
-    const page = generatedConfig.value.pages[currentPageId.value];
-    if (page) {
-      page.sections = newSections;
-    }
+    store.setSections(newSections);
+    // Trigger sync handled by watcher on projectConfig
   },
 });
 
@@ -56,14 +73,8 @@ type Stack = (typeof stacks)[number];
 const modeOptions = ["auto", "mock", "live"] as const;
 type Mode = (typeof modeOptions)[number];
 
-const templateType = ref<template>("landing");
-const stack = ref<Stack>("nuxt");
-const mode = ref<Mode>("auto");
+// DEPRECATED local state: templateType, stack, mode, etc. replaced by store.generation
 
-const wordpressBaseUrl = ref<string>("");
-const wordpressRestBase = ref<string>("/wp-json/wp/v2");
-
-const brief = ref("");
 const route = useRoute();
 const router = useRouter(); // Define router
 const loading = ref(!!route.query.id); // Immediate loading if editing
@@ -71,78 +82,40 @@ const stage = ref<"idle" | "analyzing" | "generating" | "rendering">("idle");
 const progressMessage = ref("");
 const error = ref<string | null>(null);
 const exportTab = ref<"quick" | "manual">("quick");
+const brief = ref(""); // Keep brief as local ref? properties are now in store.generation.brief.
+// Actually ConfigSidebar uses store.generation directly.
+// But createProject depends on values.
+// Let's remove brief here if it's in store.
 
-const generatedConfig = ref<ProjectConfig | null>(null);
-const currentPageId = ref<string>("home");
-const isEditMode = ref(false);
-const selectedSectionId = ref<string | undefined>(undefined);
 const isJsonExpanded = ref(false);
-const viewport = ref<"desktop" | "tablet" | "mobile">("desktop");
-const hasResult = computed(() => !!generatedConfig.value);
 
-const selectedSection = computed(() => {
-  if (!selectedSectionId.value || !currentPageConfig.value) return null;
-  return currentPageConfig.value.sections.find(
-    (s) => s.id === selectedSectionId.value
-  );
-});
-
-function onUpdateSection(updatedEndpoint: Section) {
-  if (!generatedConfig.value || !currentPageId.value) return;
-  const page = generatedConfig.value.pages[currentPageId.value];
-  if (!page) return;
-
-  const idx = page.sections.findIndex((s) => s.id === updatedEndpoint.id);
-  if (idx !== -1) {
-    page.sections[idx] = updatedEndpoint;
-  }
-}
-
-const currentPageConfig = computed(() => {
-  if (!generatedConfig.value) return undefined;
-  return generatedConfig.value.pages?.[currentPageId.value];
-});
-
-// Iframe Communication
-const previewIframe = ref<HTMLIFrameElement | null>(null);
-const isPreviewReady = ref(false);
+// DEPRECATED: hasResult -> store.hasResult
+// DEPRECATED: selectedSection -> store.selectedSection
+// DEPRECATED: onUpdateSection -> store.updateSection
+// Utils
 const sectionEditorRef = ref<any>(null);
-
-function syncPreview() {
-  if (
-    !previewIframe.value?.contentWindow ||
-    !isPreviewReady.value ||
-    !currentPageConfig.value
-  )
-    return;
-
-  previewIframe.value.contentWindow.postMessage(
-    {
-      type: "updateConfig",
-      config: JSON.parse(JSON.stringify(currentPageConfig.value)), // Deep clone to be safe
-      isEditMode: isEditMode.value,
-      selectedSectionId: selectedSectionId.value,
-    },
-    "*"
-  );
-}
+const { previewIframe, isPreviewReady, syncPreview, forceSyncPreview } =
+  usePreviewSync();
 
 // Listen for messages from Iframe
 function onMessage(event: MessageEvent) {
   const data = event.data;
   if (!data) return;
 
-  if (data.type === "previewReady") {
+  if (data.type === "ready") {
     isPreviewReady.value = true;
     syncPreview();
   } else if (data.type === "selectSection") {
-    selectedSectionId.value = data.id;
+    isPreviewReady.value = true;
+    syncPreview(); // Initial sync can be debounced or immediate, debounced is fine.
+  } else if (data.type === "selectSection") {
+    store.selectSection(data.id);
   } else if (data.type === "reorderSection") {
     onReorderSection(data);
   } else if (data.type === "selectField") {
     // Visual Editing: Select section and focus field
-    selectedSectionId.value = data.sectionId;
-    isEditMode.value = true;
+    store.selectSection(data.sectionId);
+    store.isEditMode = true;
 
     // Defer focus to allow UI connection
     nextTick(() => {
@@ -150,6 +123,9 @@ function onMessage(event: MessageEvent) {
         sectionEditorRef.value.focusField(data.field);
       }
     });
+  } else if (data.type === "updateField") {
+    // Inline Edit
+    store.updateSectionField(data.sectionId, data.field, data.value);
   }
 }
 
@@ -172,7 +148,7 @@ onUnmounted(() => {
 // Helper to get available pages list
 const pagesList = computed(() => {
   const config = generatedConfig.value;
-  if (!config) return [];
+  if (!config || !config.pages) return [];
   return Object.keys(config.pages).map((id) => ({
     id,
     route: config.pages[id]?.meta?.note,
@@ -186,9 +162,9 @@ watch(
   user,
   (u) => {
     if (!u) {
-      mode.value = "mock";
+      store.generation.mode = "mock";
     } else {
-      mode.value = "auto";
+      store.generation.mode = "auto";
     }
   },
   { immediate: true }
@@ -267,55 +243,110 @@ function handleAuthConfirm() {
   navigateTo("/login");
 }
 
+const streamingContent = ref("");
+
 async function createProject() {
   console.log("createProject called");
-  // Reset
-  generatedConfig.value = null;
+  store.setProjectConfig(null as any);
   stage.value = "analyzing";
-  progressMessage.value = "Analyzing requirements...";
+  progressMessage.value = "Connecting to Gemini...";
   error.value = null;
   loading.value = true;
-  currentPageId.value = "home";
+  store.currentPageId = "home";
+  streamingContent.value = "";
 
   try {
-    console.log("Fetching /api/generate-page...");
-    const { config, error: err } = await $fetch<{
-      config: ProjectConfig;
-      error?: string;
-    }>("/api/generate-page", {
+    const isStream = true; // Force stream for now
+
+    // Use native fetch to support streaming
+    const response = await fetch("/api/generate-page", {
       method: "POST",
-      body: {
-        template: templateType.value,
-        stack: stack.value,
-        mode: mode.value,
-        brief: brief.value,
-        wordpressBaseUrl: wordpressBaseUrl.value,
-        wordpressRestBase: wordpressRestBase.value,
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        template: store.generation.template,
+        stack: store.generation.stack,
+        mode: store.generation.mode,
+        brief: store.generation.brief,
+        wordpressBaseUrl: store.generation.wordpressBaseUrl,
+        wordpressRestBase: store.generation.wordpressRestBase,
+        stream: isStream,
+      }),
     });
 
-    if (err) {
-      error.value = err;
-      return;
+    if (!response.body) throw new Error("No response body");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let resultText = "";
+
+    stage.value = "generating"; // Update stage
+    progressMessage.value = "Streaming content...";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      resultText += chunk;
+      streamingContent.value = resultText;
+
+      // Attempt to parse JSON progressively (simple approach: checks for full JSON structure)
+      // For a better UX, we could try to extract partial sections, but for now let's just show text
     }
 
-    stage.value = "rendering";
-    generatedConfig.value = config;
+    try {
+      // Final Parse
+      // Remove markdown code blocks if present
+      // Parse using our robust utility
+      const config = parseAIResponse(resultText);
 
-    // Confetti
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-    });
+      store.setProjectConfig(config);
+
+      // Ensure we select a valid page ID
+      if (config.pages && Object.keys(config.pages).length > 0) {
+        if (!config.pages["home"]) {
+          const firstPageId = Object.keys(config.pages)[0];
+          if (firstPageId) {
+            store.currentPageId = firstPageId;
+          }
+        } else {
+          store.currentPageId = "home";
+        }
+      }
+
+      console.log("[Builder] Config set. State:", {
+        pageId: store.currentPageId,
+        configKeys: config.pages ? Object.keys(config.pages) : "no-pages",
+        storeHasConfig: !!store.projectConfig,
+      });
+
+      // Force immediate sync to update iframe without delay
+      forceSyncPreview();
+
+      stage.value = "rendering";
+
+      // Confetti
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+    } catch (err: any) {
+      console.error("JSON Parse Error:", err);
+      // Fallback is handled by ai-parser, but if we get here, it's a hard error
+      throw new Error(err.message || "Failed to parse generated content");
+    }
   } catch (e: any) {
     console.error(e);
     error.value = e.message || "Failed to generate project.";
   } finally {
     loading.value = false;
     stage.value = "idle";
+    streamingContent.value = ""; // Clear buffer
   }
-}
+
 
 // Logic to load project on mount if ID exists
 async function loadProject(id: string) {
@@ -325,10 +356,11 @@ async function loadProject(id: string) {
   try {
     const { project } = await $fetch<{ project: any }>(`/api/projects/${id}`);
     if (project && project.config) {
-      generatedConfig.value = project.config;
-      brief.value =
-        project.config.meta?.brief || project.config.meta?.note || ""; // Restore brief
-      templateType.value = project.config.template || "landing";
+      store.setProjectConfig(project.config);
+      // Restore generation state
+      store.generation.brief =
+        project.config?.meta?.brief || project.config?.meta?.note || "";
+      store.generation.template = project.config?.template || "landing";
       // Restore other props if saved
     }
   } catch (e) {
@@ -348,11 +380,11 @@ onMounted(() => {
     if (route.query.template) {
       const t = route.query.template as string;
       if (templates.includes(t as any)) {
-        templateType.value = t as template;
+        store.generation.template = t as template;
       }
     }
     if (route.query.brief) {
-      brief.value = route.query.brief as string;
+      store.generation.brief = route.query.brief as string;
     }
   }
 });
@@ -373,7 +405,7 @@ async function downloadKit() {
       method: "POST",
       body: {
         config: generatedConfig.value,
-        stack: stack.value,
+        stack: store.generation.stack,
       },
       responseType: "blob",
     });
@@ -392,51 +424,14 @@ async function downloadKit() {
   }
 }
 
-const history = ref<string[]>([]);
-const historyIndex = ref(-1);
-let isHistoryNavigating = false;
-
-// Initialize history when config is generated
-watch(
-  generatedConfig,
-  (newVal) => {
-    if (isHistoryNavigating || !newVal) return;
-    const state = JSON.stringify(newVal);
-    if (historyIndex.value < history.value.length - 1) {
-      history.value = history.value.slice(0, historyIndex.value + 1);
-    }
-    history.value.push(state);
-    historyIndex.value++;
-    if (history.value.length > 20) {
-      history.value.shift();
-      historyIndex.value--;
-    }
-  },
-  { deep: true }
-);
+/* History logic handled by useBuilderStore */
 
 function undo() {
-  if (historyIndex.value > 0) {
-    isHistoryNavigating = true;
-    historyIndex.value--;
-    const state = history.value[historyIndex.value];
-    if (state) generatedConfig.value = JSON.parse(state);
-    nextTick(() => {
-      isHistoryNavigating = false;
-    });
-  }
+  store.undo();
 }
 
 function redo() {
-  if (historyIndex.value < history.value.length - 1) {
-    isHistoryNavigating = true;
-    historyIndex.value++;
-    const state = history.value[historyIndex.value];
-    if (state) generatedConfig.value = JSON.parse(state);
-    nextTick(() => {
-      isHistoryNavigating = false;
-    });
-  }
+  store.redo();
 }
 
 function onReorderSection({
@@ -446,32 +441,27 @@ function onReorderSection({
   id: string;
   direction: "up" | "down";
 }) {
-  if (!generatedConfig.value) return;
-  const page = generatedConfig.value.pages?.[currentPageId.value];
-  if (!page || !page.sections) return;
-
-  const index = page.sections.findIndex((s) => s.id === id);
+  const sections = [...store.currentSections];
+  const index = sections.findIndex((s) => s.id === id);
   if (index === -1) return;
 
-  const newSections = [...page.sections];
-
   if (direction === "up" && index > 0) {
-    const prev = newSections[index - 1];
-    const curr = newSections[index];
+    const prev = sections[index - 1];
+    const curr = sections[index];
     if (prev && curr) {
-      newSections[index] = prev;
-      newSections[index - 1] = curr;
+      sections[index] = prev;
+      sections[index - 1] = curr;
     }
-  } else if (direction === "down" && index < newSections.length - 1) {
-    const next = newSections[index + 1];
-    const curr = newSections[index];
+  } else if (direction === "down" && index < sections.length - 1) {
+    const next = sections[index + 1];
+    const curr = sections[index];
     if (next && curr) {
-      newSections[index] = next;
-      newSections[index + 1] = curr;
+      sections[index] = next;
+      sections[index + 1] = curr;
     }
   }
 
-  page.sections = newSections;
+  store.setSections(sections);
 }
 
 function downloadJson() {
@@ -587,17 +577,12 @@ async function handleConfirmPublish() {
     <div class="mx-auto max-w-[1600px] px-6 py-10 pt-24 space-y-8">
       <!-- 1. Configuration Form -->
       <ConfigSidebar
-        v-model:templateType="templateType"
-        v-model:stack="stack"
-        v-model:mode="mode"
-        v-model:brief="brief"
-        v-model:wordpressBaseUrl="wordpressBaseUrl"
-        v-model:wordpressRestBase="wordpressRestBase"
         :loading="loading"
         :stage="stage"
         :progressMessage="progressMessage"
         :error="error"
         :user="user"
+        :streaming-log="streamingContent"
         @generate="createProject"
       />
 
@@ -628,8 +613,6 @@ async function handleConfirmPublish() {
             <div v-if="selectedSection">
               <SectionEditor
                 ref="sectionEditorRef"
-                :section="selectedSection"
-                @update:section="onUpdateSection"
                 @close="selectedSectionId = undefined"
               />
             </div>
@@ -706,11 +689,7 @@ async function handleConfirmPublish() {
               >
                 Design
               </h3>
-              <StyleControlPanel
-                v-if="generatedConfig"
-                :config="generatedConfig"
-                @update:config="(val) => (generatedConfig = val)"
-              />
+              <StyleControlPanel v-if="generatedConfig" />
             </div>
           </div>
 
@@ -876,11 +855,17 @@ async function handleConfirmPublish() {
                     class="text-lg font-semibold text-white mb-2 flex items-center gap-2"
                   >
                     🚀 Launch your
-                    {{ generatedConfig?.meta?.stack || stack || "App" }}
+                    {{
+                      generatedConfig?.meta?.stack ||
+                      store.generation.stack ||
+                      "App"
+                    }}
                   </h3>
                   <p class="text-sm text-slate-300">
                     Your kit is ready. Follow these steps to get started with
-                    <strong>{{ generatedConfig?.meta?.stack || stack }}</strong
+                    <strong>{{
+                      generatedConfig?.meta?.stack || store.generation.stack
+                    }}</strong
                     >.
                   </p>
                 </div>
@@ -891,7 +876,9 @@ async function handleConfirmPublish() {
                   <!-- Nuxt Instructions -->
                   <div
                     v-if="
-                      ['nuxt'].includes(generatedConfig?.meta?.stack || stack)
+                      ['nuxt'].includes(
+                        generatedConfig?.meta?.stack || store.generation.stack
+                      )
                     "
                     class="space-y-6"
                   >
@@ -969,7 +956,7 @@ modules: ['@nuxtjs/tailwindcss']</pre
                   <div
                     v-else-if="
                       ['vue', 'vue-vite'].includes(
-                        generatedConfig?.meta?.stack || stack
+                        generatedConfig?.meta?.stack || store.generation.stack
                       )
                     "
                     class="space-y-6"
@@ -1040,8 +1027,10 @@ npm run dev</pre
 
                   <div
                     v-else-if="
-                      (generatedConfig?.meta?.stack || stack) === 'next' ||
-                      (generatedConfig?.meta?.stack || stack) === 'nextjs'
+                      (generatedConfig?.meta?.stack ||
+                        store.generation.stack) === 'next' ||
+                      (generatedConfig?.meta?.stack ||
+                        store.generation.stack) === 'nextjs'
                     "
                     class="space-y-6"
                   >
@@ -1116,7 +1105,9 @@ cd my-site</pre
                       d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
                     />
                   </svg>
-                  Download {{ generatedConfig?.meta?.stack || stack }} Kit
+                  Download
+                  {{ generatedConfig?.meta?.stack || store.generation.stack }}
+                  Kit
                 </button>
               </div>
             </div>

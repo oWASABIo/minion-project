@@ -1,27 +1,22 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { Section } from "@minions/shared";
 import BaseInput from "~/components/ui/BaseInput.vue";
 import BaseTextarea from "~/components/ui/BaseTextarea.vue";
+import { useBuilderStore } from "~/stores/builder";
+import { storeToRefs } from "pinia";
 
-const props = defineProps<{
-  section: Section;
-}>();
+const store = useBuilderStore();
+const { selectedSection } = storeToRefs(store);
 
 const emit = defineEmits<{
-  (e: "update:section", val: Section): void;
   (e: "close"): void;
 }>();
 
-// computed writable proxy
-const localSection = computed({
-  get: () => props.section,
-  set: (val) => emit("update:section", val),
-});
-
 // Helper to update specific field
 function updateField(key: any, value: any) {
-  emit("update:section", { ...props.section, [key]: value } as Section);
+  if (!selectedSection.value) return;
+  store.updateSection({ ...selectedSection.value, [key]: value } as Section);
 }
 
 const containerRef = ref<HTMLElement | null>(null);
@@ -50,12 +45,12 @@ defineExpose({ focusField });
 </script>
 
 <template>
-  <div class="space-y-4" ref="containerRef">
+  <div class="space-y-4" ref="containerRef" v-if="selectedSection">
     <div
       class="flex items-center justify-between border-b border-white/10 pb-3"
     >
       <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-        Edit {{ section.type }}
+        Edit {{ selectedSection.type }}
       </h3>
       <button
         @click="$emit('close')"
@@ -67,61 +62,61 @@ defineExpose({ focusField });
 
     <div class="space-y-4">
       <!-- Common Text Fields -->
-      <div v-if="'eyebrow' in section">
+      <div v-if="'eyebrow' in selectedSection">
         <BaseInput
           label="Eyebrow"
-          :model-value="(section as any).eyebrow"
+          :model-value="(selectedSection as any).eyebrow"
           @update:model-value="(val) => updateField('eyebrow', val)"
           data-field-key="eyebrow"
         />
       </div>
 
-      <div v-if="'headline' in section">
+      <div v-if="'headline' in selectedSection">
         <BaseTextarea
           label="Headline"
           :rows="2"
-          :model-value="(section as any).headline"
+          :model-value="(selectedSection as any).headline"
           @update:model-value="(val) => updateField('headline', val)"
           data-field-key="headline"
         />
       </div>
 
-      <div v-if="'title' in section">
+      <div v-if="'title' in selectedSection">
         <BaseInput
           label="Title"
-          :model-value="(section as any).title"
+          :model-value="(selectedSection as any).title"
           @update:model-value="(val) => updateField('title', val)"
           data-field-key="title"
         />
       </div>
 
-      <div v-if="'subheadline' in section">
+      <div v-if="'subheadline' in selectedSection">
         <BaseTextarea
           label="Subheadline"
           :rows="2"
-          :model-value="(section as any).subheadline"
+          :model-value="(selectedSection as any).subheadline"
           @update:model-value="(val) => updateField('subheadline', val)"
           data-field-key="subheadline"
         />
       </div>
 
-      <div v-if="'image' in section">
+      <div v-if="'image' in selectedSection">
         <label
           class="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-1"
           >Image URL</label
         >
         <div class="flex gap-3">
           <div
-            v-if="(section as any).image"
+            v-if="(selectedSection as any).image"
             class="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-slate-800"
           >
             <img
-              :src="(section as any).image"
+              :src="(selectedSection as any).image"
               class="h-full w-full object-cover"
             />
           </div>
           <BaseInput
-            :model-value="(section as any).image"
+            :model-value="(selectedSection as any).image"
             @update:model-value="(val) => updateField('image', val)"
             placeholder="https://..."
             data-field-key="image"
@@ -129,62 +124,66 @@ defineExpose({ focusField });
         </div>
       </div>
 
-      <div v-if="'subtitle' in section">
+      <div v-if="'subtitle' in selectedSection">
         <BaseTextarea
           label="Subtitle"
           :rows="2"
-          :model-value="(section as any).subtitle"
+          :model-value="(selectedSection as any).subtitle"
           @update:model-value="(val) => updateField('subtitle', val)"
           data-field-key="subtitle"
         />
       </div>
 
-      <div v-if="'description' in section">
+      <div v-if="'description' in selectedSection">
         <BaseTextarea
           label="Description"
           :rows="3"
-          :model-value="(section as any).description"
+          :model-value="(selectedSection as any).description"
           @update:model-value="(val) => updateField('description', val)"
           data-field-key="description"
         />
       </div>
 
-      <div v-if="'primaryCta' in section && (section as any).primaryCta">
+      <div
+        v-if="'primaryCta' in selectedSection && (selectedSection as any).primaryCta"
+      >
         <label
           class="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-2"
           >Primary Button</label
         >
         <div class="grid grid-cols-2 gap-2">
           <BaseInput
-            :model-value="(section as any).primaryCta.label"
-            @update:model-value="val => updateField('primaryCta', { ...(section as any).primaryCta, label: val })"
+            :model-value="(selectedSection as any).primaryCta.label"
+            @update:model-value="val => updateField('primaryCta', { ...(selectedSection as any).primaryCta, label: val })"
             placeholder="Label"
             data-field-key="primaryCta.label"
           />
           <BaseInput
-            :model-value="(section as any).primaryCta.href"
-            @update:model-value="val => updateField('primaryCta', { ...(section as any).primaryCta, href: val })"
+            :model-value="(selectedSection as any).primaryCta.href"
+            @update:model-value="val => updateField('primaryCta', { ...(selectedSection as any).primaryCta, href: val })"
             placeholder="Link"
             data-field-key="primaryCta.href"
           />
         </div>
       </div>
 
-      <div v-if="'secondaryCta' in section && (section as any).secondaryCta">
+      <div
+        v-if="'secondaryCta' in selectedSection && (selectedSection as any).secondaryCta"
+      >
         <label
           class="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-2"
           >Secondary Button</label
         >
         <div class="grid grid-cols-2 gap-2">
           <BaseInput
-            :model-value="(section as any).secondaryCta.label"
-            @update:model-value="val => updateField('secondaryCta', { ...(section as any).secondaryCta, label: val })"
+            :model-value="(selectedSection as any).secondaryCta.label"
+            @update:model-value="val => updateField('secondaryCta', { ...(selectedSection as any).secondaryCta, label: val })"
             placeholder="Label"
             data-field-key="secondaryCta.label"
           />
           <BaseInput
-            :model-value="(section as any).secondaryCta.href"
-            @update:model-value="val => updateField('secondaryCta', { ...(section as any).secondaryCta, href: val })"
+            :model-value="(selectedSection as any).secondaryCta.href"
+            @update:model-value="val => updateField('secondaryCta', { ...(selectedSection as any).secondaryCta, href: val })"
             placeholder="Link"
             data-field-key="secondaryCta.href"
           />
@@ -194,7 +193,7 @@ defineExpose({ focusField });
       <!-- Generic List Editor (Items, Plans, Members) -->
       <div v-for="listKey in ['items', 'plans', 'members']" :key="listKey">
         <div
-          v-if="listKey in section && Array.isArray((section as any)[listKey])"
+          v-if="listKey in selectedSection && Array.isArray((selectedSection as any)[listKey])"
         >
           <label
             class="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-2"
@@ -203,13 +202,13 @@ defineExpose({ focusField });
           </label>
           <div class="space-y-3">
             <div
-              v-for="(item, index) in (section as any)[listKey]"
+              v-for="(item, index) in (selectedSection as any)[listKey]"
               :key="index"
               class="relative rounded-lg bg-slate-800/50 p-3 ring-1 ring-white/10"
             >
               <button
                 @click="() => {
-                  const newItems = [...(section as any)[listKey]];
+                  const newItems = [...(selectedSection as any)[listKey]];
                   newItems.splice(Number(index), 1);
                   updateField(listKey, newItems);
                 }"
@@ -234,7 +233,7 @@ defineExpose({ focusField });
                   v-if="'title' in item || 'head' in item || 'name' in item"
                   :model-value="item.title || item.head || item.name"
                   @update:model-value="val => {
-                     const newItems = [...(section as any)[listKey]];
+                     const newItems = [...(selectedSection as any)[listKey]];
                      const key = 'title' in item ? 'title' : 'head' in item ? 'head' : 'name';
                      newItems[Number(index)] = { ...item, [key]: val };
                      updateField(listKey, newItems);
@@ -251,7 +250,7 @@ defineExpose({ focusField });
                   <BaseInput
                     :model-value="item.price"
                     @update:model-value="val => {
-                       const newItems = [...(section as any)[listKey]];
+                       const newItems = [...(selectedSection as any)[listKey]];
                        newItems[Number(index)] = { ...item, price: val };
                        updateField(listKey, newItems);
                      }"
@@ -262,7 +261,7 @@ defineExpose({ focusField });
                     v-if="'period' in item"
                     :model-value="item.period"
                     @update:model-value="val => {
-                       const newItems = [...(section as any)[listKey]];
+                       const newItems = [...(selectedSection as any)[listKey]];
                        newItems[Number(index)] = { ...item, period: val };
                        updateField(listKey, newItems);
                      }"
@@ -277,7 +276,7 @@ defineExpose({ focusField });
                   <BaseInput
                     :model-value="item.value"
                     @update:model-value="val => {
-                       const newItems = [...(section as any)[listKey]];
+                       const newItems = [...(selectedSection as any)[listKey]];
                        newItems[Number(index)] = { ...item, value: val };
                        updateField(listKey, newItems);
                      }"
@@ -288,7 +287,7 @@ defineExpose({ focusField });
                     v-if="'label' in item"
                     :model-value="item.label"
                     @update:model-value="val => {
-                       const newItems = [...(section as any)[listKey]];
+                       const newItems = [...(selectedSection as any)[listKey]];
                        newItems[Number(index)] = { ...item, label: val };
                        updateField(listKey, newItems);
                      }"
@@ -305,7 +304,7 @@ defineExpose({ focusField });
                   "
                   :model-value="item.description || item.quote || item.bio"
                   @update:model-value="val => {
-                     const newItems = [...(section as any)[listKey]];
+                     const newItems = [...(selectedSection as any)[listKey]];
                      const key = 'quote' in item ? 'quote' : 'bio' in item ? 'bio' : 'description';
                      newItems[Number(index)] = { ...item, [key]: val };
                      updateField(listKey, newItems);
@@ -327,7 +326,7 @@ defineExpose({ focusField });
                   v-if="'question' in item || 'q' in item"
                   :model-value="item.question || item.q"
                   @update:model-value="val => {
-                     const newItems = [...(section as any)[listKey]];
+                     const newItems = [...(selectedSection as any)[listKey]];
                      const key = 'q' in item ? 'q' : 'question';
                      newItems[Number(index)] = { ...item, [key]: val };
                      updateField(listKey, newItems);
@@ -341,7 +340,7 @@ defineExpose({ focusField });
                   v-if="'answer' in item || 'a' in item"
                   :model-value="item.answer || item.a"
                   @update:model-value="val => {
-                     const newItems = [...(section as any)[listKey]];
+                     const newItems = [...(selectedSection as any)[listKey]];
                      const key = 'a' in item ? 'a' : 'answer';
                      newItems[Number(index)] = { ...item, [key]: val };
                      updateField(listKey, newItems);
@@ -359,7 +358,7 @@ defineExpose({ focusField });
                   v-if="'role' in item"
                   :model-value="item.role"
                   @update:model-value="val => {
-                     const newItems = [...(section as any)[listKey]];
+                     const newItems = [...(selectedSection as any)[listKey]];
                      newItems[Number(index)] = { ...item, role: val };
                      updateField(listKey, newItems);
                    }"
@@ -381,7 +380,7 @@ defineExpose({ focusField });
                     <BaseInput
                       :model-value="item.cta.label"
                       @update:model-value="val => {
-                         const newItems = [...(section as any)[listKey]];
+                         const newItems = [...(selectedSection as any)[listKey]];
                          newItems[Number(index)] = { ...item, cta: { ...item.cta, label: val } };
                          updateField(listKey, newItems);
                        }"
@@ -391,7 +390,7 @@ defineExpose({ focusField });
                     <BaseInput
                       :model-value="item.cta.href"
                       @update:model-value="val => {
-                         const newItems = [...(section as any)[listKey]];
+                         const newItems = [...(selectedSection as any)[listKey]];
                          newItems[Number(index)] = { ...item, cta: { ...item.cta, href: val } };
                          updateField(listKey, newItems);
                        }"
@@ -405,10 +404,10 @@ defineExpose({ focusField });
 
             <button
               @click="() => {
-                 const newItems = [...(section as any)[listKey]];
+                 const newItems = [...(selectedSection as any)[listKey]];
                  if (listKey === 'plans') newItems.push({ name: 'Plan', price: '$10', features: [] });
                  else if (listKey === 'members') newItems.push({ name: 'Member', role: 'Role' });
-                 else if (section.type === 'faq') newItems.push({ question: 'New Question', answer: 'Answer' });
+                 else if (selectedSection?.type === 'faq') newItems.push({ question: 'New Question', answer: 'Answer' });
                  else newItems.push({ title: 'New Item', description: 'Description' });
                  updateField(listKey, newItems);
               }"
@@ -422,14 +421,16 @@ defineExpose({ focusField });
 
       <!-- JSON Array Editor for Complex Lists -->
       <div v-for="key in ['items', 'plans', 'members']" :key="key">
-        <div v-if="key in section && Array.isArray((section as any)[key])">
+        <div
+          v-if="key in selectedSection && Array.isArray((selectedSection as any)[key])"
+        >
           <label
             class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-1"
           >
             {{ key }} (JSON)
           </label>
           <textarea
-            :value="JSON.stringify((section as any)[key], null, 2)"
+            :value="JSON.stringify((selectedSection as any)[key], null, 2)"
             rows="6"
             @change="e => {
                try {
@@ -448,13 +449,13 @@ defineExpose({ focusField });
       </div>
 
       <!-- Variant Selector -->
-      <div v-if="'variant' in section">
+      <div v-if="'variant' in selectedSection">
         <label
           class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-1"
           >Variant</label
         >
         <input
-          :value="(section as any).variant"
+          :value="(selectedSection as any).variant"
           @input="e => updateField('variant', (e.target as HTMLInputElement).value)"
           class="w-full rounded-lg bg-slate-900/80 px-3 py-2 text-sm text-white ring-1 ring-white/10 focus:ring-indigo-500"
           placeholder="e.g. split, center"
@@ -464,7 +465,7 @@ defineExpose({ focusField });
       <div
         class="pt-4 border-t border-white/10 text-[10px] text-slate-500 font-mono"
       >
-        ID: {{ section.id }}
+        ID: {{ selectedSection.id }}
       </div>
     </div>
   </div>
