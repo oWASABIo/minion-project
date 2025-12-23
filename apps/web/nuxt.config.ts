@@ -15,6 +15,11 @@ export default defineNuxtConfig({
       darkMode: "class",
     },
   },
+  vite: {
+    server: {
+      allowedHosts: true,
+    },
+  },
   supabase: {
     redirect: false, // Handle auth redirects manually for now
     redirectOptions: {

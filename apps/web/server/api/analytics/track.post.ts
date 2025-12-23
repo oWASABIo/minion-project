@@ -1,5 +1,5 @@
 import { serverSupabaseClient } from "#supabase/server";
-import { Database } from "~/types/supabase";
+import type { Database } from "~/types/database.types";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
