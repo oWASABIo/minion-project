@@ -919,22 +919,7 @@ const plugins = [
   
 ];
 
-const assets = {
-  "/index.mjs": {
-    "type": "text/javascript; charset=utf-8",
-    "etag": "\"1c8f0-92QOPqrgdIIw30DMvGeXUwzVvzw\"",
-    "mtime": "2025-12-22T11:06:37.169Z",
-    "size": 116976,
-    "path": "index.mjs"
-  },
-  "/index.mjs.map": {
-    "type": "application/json",
-    "etag": "\"722c5-1Vh7iosm6jcEd+gcCuidKrHssrE\"",
-    "mtime": "2025-12-22T11:06:37.169Z",
-    "size": 467653,
-    "path": "index.mjs.map"
-  }
-};
+const assets = {};
 
 function readAsset (id) {
   const serverDir = dirname$1(fileURLToPath(globalThis._importMeta_.url));

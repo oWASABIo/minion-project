@@ -32,6 +32,29 @@ export interface Database {
           user_id?: string;
         };
       };
+      analytics_events: {
+        Row: {
+          id: number;
+          created_at: string;
+          project_id: string;
+          event_type: string;
+          metadata: Json;
+        };
+        Insert: {
+          id?: number;
+          created_at?: string;
+          project_id: string;
+          event_type: string;
+          metadata?: Json;
+        };
+        Update: {
+          id?: number;
+          created_at?: string;
+          project_id?: string;
+          event_type?: string;
+          metadata?: Json;
+        };
+      };
     };
   };
 }

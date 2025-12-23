@@ -19,6 +19,20 @@ import PreviewToolbar from "~/components/builder/PreviewToolbar.vue";
 import PreviewFrame from "~/components/builder/PreviewFrame.vue";
 import BaseButton from "~/components/ui/BaseButton.vue";
 import ConfirmModal from "~/components/ui/ConfirmModal.vue";
+import draggableComponent from "vuedraggable";
+const draggable = draggableComponent as any;
+
+// Computed for Drag & Drop
+const currentSections = computed({
+  get: () => currentPageConfig.value?.sections || [],
+  set: (newSections: Section[]) => {
+    if (!generatedConfig.value?.pages || !currentPageId.value) return;
+    const page = generatedConfig.value.pages[currentPageId.value];
+    if (page) {
+      page.sections = newSections;
+    }
+  },
+});
 
 const { success: toastSuccess, error: toastError } = useToast();
 
@@ -235,6 +249,12 @@ async function saveProject() {
   } finally {
     isSaving.value = false;
   }
+}
+
+function copyPublicLink() {
+  if (!route.query.id) return;
+  const url = `${window.location.origin}/p/${route.query.id}`;
+  copyToClipboard(url);
 }
 
 const showPublishModal = ref(false);
@@ -614,6 +634,73 @@ async function handleConfirmPublish() {
               />
             </div>
             <div v-else>
+              <div class="mb-6">
+                <!-- Structure / Reordering -->
+                <h3
+                  class="text-xs font-semibold uppercase tracking-[0.16em] text-white mb-3"
+                >
+                  Structure
+                </h3>
+                <draggable
+                  v-model="currentSections"
+                  item-key="id"
+                  handle=".drag-handle"
+                  ghost-class="opacity-20"
+                  class="space-y-2"
+                >
+                  <template #item="{ element: section }">
+                    <div
+                      class="group flex items-center justify-between rounded-lg border border-white/5 bg-slate-900/50 p-2 hover:border-indigo-500/50 hover:bg-slate-800 transition-colors cursor-default"
+                    >
+                      <div
+                        class="flex items-center gap-3 overflow-hidden"
+                        @click="selectedSectionId = section.id"
+                      >
+                        <!-- Drag Handle -->
+                        <div
+                          class="drag-handle cursor-grab text-slate-500 hover:text-white p-1"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 6h16M4 12h16M4 18h16"
+                            />
+                          </svg>
+                        </div>
+                        <span
+                          class="text-sm font-medium text-slate-200 truncate capitalize"
+                        >
+                          {{ section.type }}
+                        </span>
+                      </div>
+                      <button
+                        @click.stop="selectedSectionId = section.id"
+                        class="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-400 transition-opacity"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </template>
+                </draggable>
+              </div>
+
               <h3
                 class="text-xs font-semibold uppercase tracking-[0.16em] text-white mb-4"
               >
@@ -684,6 +771,28 @@ async function handleConfirmPublish() {
                 "
               >
                 {{ isPublished ? "Published (Update)" : "Publish / Share" }}
+              </BaseButton>
+
+              <BaseButton
+                v-if="isPublished"
+                @click="copyPublicLink"
+                variant="secondary"
+                size="xs"
+                title="Copy Public Link"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  class="w-4 h-4"
+                >
+                  <path
+                    d="M12.232 4.232a2.5 2.5 0 013.536 3.536l-1.225 1.224a.75.75 0 001.061 1.06l1.224-1.224a4 4 0 00-5.656-5.656l-3 3a4 4 0 000 5.656.75.75 0 001.06-1.06 2.5 2.5 0 010-3.536l3-3z"
+                  />
+                  <path
+                    d="M3.332 11.854a4 4 0 005.657 5.657l3-3a4 4 0 000-5.657.75.75 0 10-1.061 1.061 2.5 2.5 0 010 3.535l-3 3a2.5 2.5 0 01-3.536-3.536l1.225-1.224a.75.75 0 00-1.061-1.06l-1.224 1.224z"
+                  />
+                </svg>
               </BaseButton>
 
               <BaseButton
