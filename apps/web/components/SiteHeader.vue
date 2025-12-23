@@ -13,9 +13,9 @@ const props = withDefaults(
 );
 
 const siteName = computed(
-  () => props.config.site.siteName || "Generated Preview"
+  () => props.config.site?.siteName || "Generated Preview"
 );
-const tagline = computed(() => props.config.site.tagline || "");
+const tagline = computed(() => props.config.site?.tagline || "");
 
 const user = useSupabaseUser();
 const supabase = useSupabaseClient();

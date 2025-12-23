@@ -16,6 +16,7 @@ function onMessage(event: MessageEvent) {
   if (!data) return;
 
   if (data.type === "updateConfig") {
+    console.log("[Preview] Received Config:", data.config);
     config.value = data.config;
     if (data.isEditMode !== undefined) isEditMode.value = data.isEditMode;
     if (data.selectedSectionId !== undefined)

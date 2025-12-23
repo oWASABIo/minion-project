@@ -166,6 +166,22 @@ const isDark = computed(() => {
   return props.config?.site?.themeMode !== "light";
 });
 
+// DEBUG: Log full sections to troubleshoot content keys
+watch(
+  () => props.config,
+  (cfg) => {
+    if (cfg?.sections) {
+      console.log(
+        "[PageRenderer] Full Sections Data:",
+        JSON.parse(JSON.stringify(cfg.sections))
+      );
+    } else {
+      console.warn("[PageRenderer] No sections found in config");
+    }
+  },
+  { immediate: true, deep: true }
+);
+
 const accent = computed(() => props.config?.site?.primaryColor || "#4f46e5");
 const font = computed(() => props.config?.site?.fontFamily || "Inter");
 

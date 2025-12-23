@@ -57,20 +57,28 @@ export function parseAIResponse(rawText: string): ProjectConfig {
       const projectConfig: ProjectConfig = {
         template: pageConfig.template,
         templateId: "generated-project", // Default ID
-        site: pageConfig.site,
+        site: pageConfig.site || { siteName: "My Site", themeMode: "dark" },
         backend: pageConfig.backend,
         meta: pageConfig.meta,
         pages: {
-          home: pageConfig,
+          home: normalizeSections(pageConfig),
         },
       };
 
       return projectConfig;
     }
 
-    // Fallback: If neither, it might be a partial or valid ProjectConfig without pages yet?
-    // Assuming ProjectConfig for safety, referencing code will handle empty pages
-    return config as ProjectConfig;
+    // Fallback: It might be a ProjectConfig
+    const project = config as ProjectConfig;
+    if (project.pages) {
+      Object.keys(project.pages).forEach((key) => {
+        const page = project.pages![key];
+        if (page) {
+          project.pages![key] = normalizeSections(page);
+        }
+      });
+    }
+    return project;
   } catch (err: any) {
     // If it's already an error object thrown above, rethrow
     if (err.message && !err.message.includes("JSON")) {
@@ -80,4 +88,92 @@ export function parseAIResponse(rawText: string): ProjectConfig {
     console.error("JSON Parse Error on:", cleaned);
     throw new Error("Failed to parse AI response: " + err.message);
   }
+}
+
+function normalizeSections(pageConfig: PageConfig): PageConfig {
+  if (!pageConfig.sections) return pageConfig;
+
+  pageConfig.sections = pageConfig.sections.map((section: any) => {
+    // Normalize Type
+    let type = section.type || "";
+    // Handle Common AI Capitalization (Hero -> hero, Features -> features)
+    type = type.charAt(0).toLowerCase() + type.slice(1);
+
+    // Map specific types if needed
+    if (type.toLowerCase() === "bloglist") type = "blogList";
+    if (type.toLowerCase() === "productlist") type = "productList";
+    if (type.toLowerCase() === "productdetail") type = "productDetail";
+    if (type.toLowerCase() === "cta") type = "cta";
+    if (type.toLowerCase() === "faq") type = "faq";
+    if (type.toLowerCase() === "cli") type = "cli";
+
+    // Flatten Content Logic (Refactored for robustness)
+    let mergedSection = { ...section };
+
+    if (
+      section.content &&
+      typeof section.content === "object" &&
+      !Array.isArray(section.content)
+    ) {
+      // console.log(`[AI Parser] Flattening content for section ${section.id}`, Object.keys(section.content));
+      mergedSection = {
+        ...mergedSection,
+        ...section.content,
+        // Restore overrides
+        id: section.id,
+        type: type,
+      };
+    }
+
+    // FIELD MAPPING: Fix Schema Mismatch
+    // 1. Hero Section Mapping
+    if (type === "hero") {
+      // tag -> eyebrow
+      if (mergedSection.tag && !mergedSection.eyebrow)
+        mergedSection.eyebrow = mergedSection.tag;
+
+      // title -> headline
+      if (mergedSection.title && !mergedSection.headline)
+        mergedSection.headline = mergedSection.title;
+
+      // description -> subheadline
+      if (mergedSection.description && !mergedSection.subheadline)
+        mergedSection.subheadline = mergedSection.description;
+
+      // actions -> primaryCta, secondaryCta
+      if (Array.isArray(mergedSection.actions)) {
+        if (mergedSection.actions.length > 0 && !mergedSection.primaryCta) {
+          mergedSection.primaryCta = {
+            label:
+              mergedSection.actions[0].label || mergedSection.actions[0].text,
+            href:
+              mergedSection.actions[0].link ||
+              mergedSection.actions[0].href ||
+              "#",
+          };
+        }
+        if (mergedSection.actions.length > 1 && !mergedSection.secondaryCta) {
+          mergedSection.secondaryCta = {
+            label:
+              mergedSection.actions[1].label || mergedSection.actions[1].text,
+            href:
+              mergedSection.actions[1].link ||
+              mergedSection.actions[1].href ||
+              "#",
+          };
+        }
+      }
+    }
+
+    // 2. Features Section
+    if (type === "features") {
+      if (mergedSection.description && !mergedSection.subtitle)
+        mergedSection.subtitle = mergedSection.description;
+    }
+
+    mergedSection.type = type;
+    return mergedSection;
+  });
+
+  return pageConfig;
 }

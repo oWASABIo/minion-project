@@ -45,7 +45,7 @@ function getCurrentModel() {
   const config = useRuntimeConfig();
   // Default to gemini-1.5-flash (Supported by new SDK)
   let modelName =
-    (config.geminiModel as string | undefined) || "gemini-1.5-flash";
+    (config.geminiModel as string | undefined) || "gemini-flash-latest";
 
   return instance.getGenerativeModel({
     model: modelName,

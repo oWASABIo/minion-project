@@ -81,17 +81,10 @@ const loading = ref(!!route.query.id); // Immediate loading if editing
 const stage = ref<"idle" | "analyzing" | "generating" | "rendering">("idle");
 const progressMessage = ref("");
 const error = ref<string | null>(null);
-const exportTab = ref<"quick" | "manual">("quick");
-const brief = ref(""); // Keep brief as local ref? properties are now in store.generation.brief.
-// Actually ConfigSidebar uses store.generation directly.
-// But createProject depends on values.
-// Let's remove brief here if it's in store.
+const brief = ref("");
 
 const isJsonExpanded = ref(false);
 
-// DEPRECATED: hasResult -> store.hasResult
-// DEPRECATED: selectedSection -> store.selectedSection
-// DEPRECATED: onUpdateSection -> store.updateSection
 // Utils
 const sectionEditorRef = ref<any>(null);
 const { previewIframe, isPreviewReady, syncPreview, forceSyncPreview } =
@@ -256,7 +249,7 @@ async function createProject() {
   streamingContent.value = "";
 
   try {
-    const isStream = true; // Force stream for now
+    const isStream = false; // Disable stream to ensure multi-page generation & normalization works
 
     // Use native fetch to support streaming
     const response = await fetch("/api/generate-page", {
@@ -291,62 +284,60 @@ async function createProject() {
       const chunk = decoder.decode(value, { stream: true });
       resultText += chunk;
       streamingContent.value = resultText;
-
-      // Attempt to parse JSON progressively (simple approach: checks for full JSON structure)
-      // For a better UX, we could try to extract partial sections, but for now let's just show text
     }
 
-    try {
-      // Final Parse
-      // Remove markdown code blocks if present
-      // Parse using our robust utility
-      const config = parseAIResponse(resultText);
+    // Final Parse
+    // Parse using our robust utility which now returns a proper ProjectConfig
+    const config = parseAIResponse(resultText);
 
-      store.setProjectConfig(config);
+    store.setProjectConfig(config);
 
-      // Ensure we select a valid page ID
-      if (config.pages && Object.keys(config.pages).length > 0) {
-        if (!config.pages["home"]) {
-          const firstPageId = Object.keys(config.pages)[0];
-          if (firstPageId) {
-            store.currentPageId = firstPageId;
-          }
-        } else {
-          store.currentPageId = "home";
+    // Ensure we select a valid page ID
+    if (config.pages && Object.keys(config.pages).length > 0) {
+      if (!config.pages["home"]) {
+        const firstPageId = Object.keys(config.pages)[0];
+        if (firstPageId) {
+          store.currentPageId = firstPageId;
         }
+      } else {
+        store.currentPageId = "home";
       }
-
-      console.log("[Builder] Config set. State:", {
-        pageId: store.currentPageId,
-        configKeys: config.pages ? Object.keys(config.pages) : "no-pages",
-        storeHasConfig: !!store.projectConfig,
-      });
-
-      // Force immediate sync to update iframe without delay
-      forceSyncPreview();
-
-      stage.value = "rendering";
-
-      // Confetti
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
-    } catch (err: any) {
-      console.error("JSON Parse Error:", err);
-      // Fallback is handled by ai-parser, but if we get here, it's a hard error
-      throw new Error(err.message || "Failed to parse generated content");
     }
-  } catch (e: any) {
-    console.error(e);
-    error.value = e.message || "Failed to generate project.";
+
+    console.log("[Builder] Config set. State:", {
+      pageId: store.currentPageId,
+      configKeys: config.pages ? Object.keys(config.pages) : "no-pages",
+      storeHasConfig: !!store.projectConfig,
+    });
+
+    // Force immediate sync to update iframe without delay
+    forceSyncPreview();
+
+    stage.value = "rendering";
+
+    // Confetti
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+    });
+  } catch (err: any) {
+    console.error("JSON Parse Error:", err);
+    // Handle JSON parsing errors specifically if wrapped in known structure or simple message
+    if (
+      err.message &&
+      (err.message.includes("JSON") || err.message.includes("parse"))
+    ) {
+      error.value = "Failed to parse AI response. Retrying might help.";
+    } else {
+      error.value = err.message || "Failed to generate project.";
+    }
   } finally {
     loading.value = false;
     stage.value = "idle";
     streamingContent.value = ""; // Clear buffer
   }
-
+}
 
 // Logic to load project on mount if ID exists
 async function loadProject(id: string) {
@@ -478,6 +469,7 @@ function downloadJson() {
 }
 const isPublished = ref(false);
 const publishLoading = ref(false);
+const exportTab = ref<"quick-setup" | "json">("quick-setup");
 const liveUrl = computed(() => {
   if (import.meta.client) {
     return `${window.location.origin}/p/${route.query.id}`;
@@ -583,6 +575,7 @@ async function handleConfirmPublish() {
         :error="error"
         :user="user"
         :streaming-log="streamingContent"
+        :has-result="hasResult"
         @generate="createProject"
       />
 
@@ -799,410 +792,227 @@ async function handleConfirmPublish() {
 
           <!-- Preview Toolbar -->
           <PreviewToolbar
+            v-if="store.currentSections"
             v-model:viewport="viewport"
             :can-undo="historyIndex > 0"
             :can-redo="historyIndex < history.length - 1"
             @undo="undo"
             @redo="redo"
+            @export-json="downloadJson"
+            @copy-json="copyJson"
           />
 
-          <!-- Preview Iframe -->
-          <NuxtErrorBoundary>
-            <div class="relative">
-              <PreviewFrame
-                v-model:viewport="viewport"
-                @iframe-load="(el) => (previewIframe = el)"
-              />
-            </div>
-          </NuxtErrorBoundary>
-
-          <!-- Export Section (Bottom of Preview) -->
+          <!-- Iframe Container -->
           <div
-            class="rounded-2xl border border-white/10 bg-white/5 overflow-hidden"
+            class="h-[calc(100vh-12rem)] flex justify-center perspective-1000"
           >
-            <div class="flex border-b border-white/10 bg-white/5">
+            <PreviewFrame
+              ref="previewIframe"
+              :src="liveUrl"
+              :viewport="viewport"
+              class="shadow-2xl transition-all duration-300 transform origin-top"
+              :class="{
+                'w-full h-full': viewport === 'desktop',
+                'w-[768px] h-full rounded-b-xl border-x border-b border-white/10':
+                  viewport === 'tablet',
+                'w-[375px] h-full rounded-2xl border border-white/10 my-4':
+                  viewport === 'mobile',
+              }"
+            />
+          </div>
+
+          <!-- Export Interface (Tabs) -->
+          <div v-if="hasResult" class="mt-8 animate-fade-in-up">
+            <!-- Tabs Navigation -->
+            <div class="flex items-center gap-6 border-b border-white/10 mb-6">
               <button
-                @click="exportTab = 'quick'"
-                class="px-6 py-3 text-sm font-medium transition-colors"
+                @click="exportTab = 'quick-setup'"
+                class="pb-2 text-sm font-medium transition-colors border-b-2"
                 :class="
-                  exportTab === 'quick'
-                    ? 'text-white bg-white/5'
-                    : 'text-slate-400 hover:text-slate-200'
+                  exportTab === 'quick-setup'
+                    ? 'text-indigo-400 border-indigo-400'
+                    : 'text-slate-400 border-transparent hover:text-white'
                 "
               >
-                Quick Start
+                🚀 Quick Setup
               </button>
               <button
-                @click="exportTab = 'manual'"
-                class="px-6 py-3 text-sm font-medium transition-colors"
+                @click="exportTab = 'json'"
+                class="pb-2 text-sm font-medium transition-colors border-b-2"
                 :class="
-                  exportTab === 'manual'
-                    ? 'text-white bg-white/5'
-                    : 'text-slate-400 hover:text-slate-200'
+                  exportTab === 'json'
+                    ? 'text-indigo-400 border-indigo-400'
+                    : 'text-slate-400 border-transparent hover:text-white'
                 "
               >
-                Manual / JSON
+                📄 JSON Config
               </button>
             </div>
-            <!-- Export Content -->
-            <!-- Quick Start -->
-            <div v-if="exportTab === 'quick'" class="p-6 space-y-6">
-              <div class="space-y-4">
-                <div
-                  class="rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4"
+
+            <!-- Tab 1: Quick Setup -->
+            <div
+              v-if="exportTab === 'quick-setup'"
+              class="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
+            >
+              <div class="col-span-full mb-2">
+                <h3
+                  class="text-xl font-bold text-white flex items-center gap-2"
                 >
-                  <h3
-                    class="text-lg font-semibold text-white mb-2 flex items-center gap-2"
+                  Use with
+                  <span class="capitalize">{{ generation.stack }}</span>
+                </h3>
+                <p class="text-sm text-slate-400">
+                  Follow these steps to get running in minutes.
+                </p>
+              </div>
+
+              <!-- Step 1: Download -->
+              <div
+                class="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col justify-between"
+              >
+                <div>
+                  <div
+                    class="text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wide"
                   >
-                    🚀 Launch your
-                    {{
-                      generatedConfig?.meta?.stack ||
-                      store.generation.stack ||
-                      "App"
-                    }}
-                  </h3>
-                  <p class="text-sm text-slate-300">
-                    Your kit is ready. Follow these steps to get started with
-                    <strong>{{
-                      generatedConfig?.meta?.stack || store.generation.stack
-                    }}</strong
-                    >.
+                    Step 1
+                  </div>
+                  <div class="text-lg font-bold text-white mb-1">Download</div>
+                  <p class="text-xs text-slate-400 mb-4">
+                    Get the full source code configured for
+                    {{ generation.stack }}.
                   </p>
                 </div>
-
-                <div
-                  class="space-y-4 bg-slate-900/50 p-4 rounded-xl border border-white/5"
-                >
-                  <!-- Nuxt Instructions -->
-                  <div
-                    v-if="
-                      ['nuxt'].includes(
-                        generatedConfig?.meta?.stack || store.generation.stack
-                      )
-                    "
-                    class="space-y-6"
+                <div class="space-y-2">
+                  <BaseButton
+                    @click="downloadKit"
+                    variant="primary"
+                    size="sm"
+                    class="w-full"
                   >
-                    <!-- Step 1 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >1</span
-                        >
-                        Initialize Project
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-npx nuxi@latest init my-landing</pre
-                        >
-                        <pre class="text-xs font-mono text-emerald-400">
-cd my-landing</pre
-                        >
-                        <pre class="text-xs font-mono text-emerald-400">
-npm install</pre
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >2</span
-                        >
-                        Install TailwindCSS
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-npm install -D @nuxtjs/tailwindcss</pre
-                        >
-                        <p class="text-[10px] text-slate-500 pt-1">
-                          Add to nuxt.config.ts:
-                        </p>
-                        <pre class="text-xs font-mono text-slate-300">
-modules: ['@nuxtjs/tailwindcss']</pre
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Step 3 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >3</span
-                        >
-                        Add Minions Config
-                      </h4>
-                      <p class="text-xs text-slate-400 mb-2 pl-7">
-                        Copy the `tailwind.config.js` and `app.vue` from the
-                        downloaded kit.
-                      </p>
-                    </div>
-                  </div>
-
-                  <!-- VUE + VITE SPECIFIC INSTRUCTIONS -->
-                  <div
-                    v-else-if="
-                      ['vue', 'vue-vite'].includes(
-                        generatedConfig?.meta?.stack || store.generation.stack
-                      )
-                    "
-                    class="space-y-6"
-                  >
-                    <!-- Step 1 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >1</span
-                        >
-                        Download & Unzip
-                      </h4>
-                      <p class="text-xs text-slate-400 mb-2 pl-7">
-                        Download the .zip kit using the button below and extract
-                        it.
-                      </p>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >2</span
-                        >
-                        Install Dependencies
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-cd my-landing-kit</pre
-                        >
-                        <pre class="text-xs font-mono text-emerald-400">
-npm install</pre
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Step 3 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >3</span
-                        >
-                        Start Development
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-npm run dev</pre
-                        >
-                        <p class="text-[10px] text-slate-500 pt-1">
-                          Opens at http://localhost:5173
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-else-if="
-                      (generatedConfig?.meta?.stack ||
-                        store.generation.stack) === 'next' ||
-                      (generatedConfig?.meta?.stack ||
-                        store.generation.stack) === 'nextjs'
-                    "
-                    class="space-y-6"
-                  >
-                    <!-- Step 1 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >1</span
-                        >
-                        Create Next.js App
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-npx create-next-app@latest my-site --typescript --tailwind --eslint</pre
-                        >
-                        <pre class="text-xs font-mono text-emerald-400">
-cd my-site</pre
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >2</span
-                        >
-                        Setup Components
-                      </h4>
-                      <p class="text-xs text-slate-400 mb-2 pl-7">
-                        Copy the `components/` folder and `page.tsx` from the
-                        kit to your project.
-                      </p>
-                    </div>
-                  </div>
-                  <!-- Fallback / Plain HTML -->
-                  <div v-else class="space-y-3">
-                    <p class="text-sm text-slate-400">
-                      Open <strong>index.html</strong> in your browser or serve
-                      with a static server.
-                    </p>
-                    <div
-                      class="group relative rounded-lg bg-black/50 px-4 py-3 font-mono text-sm text-indigo-300"
-                    >
-                      npx serve .
-                    </div>
-                  </div>
+                    Download Kit
+                  </BaseButton>
                 </div>
+              </div>
 
-                <button
-                  @click="downloadKit"
-                  class="mt-4 w-full inline-flex justify-center items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/25"
+              <!-- Step 2: Unzip -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div
+                  class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    class="w-5 h-5"
-                  >
-                    <path
-                      d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"
-                    />
-                    <path
-                      d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
-                    />
-                  </svg>
-                  Download
-                  {{ generatedConfig?.meta?.stack || store.generation.stack }}
-                  Kit
-                </button>
+                  Step 2
+                </div>
+                <div class="text-lg font-bold text-white mb-1">Unzip</div>
+                <p class="text-xs text-slate-400">
+                  Extract to your project folder.
+                </p>
+                <div
+                  class="mt-4 rounded bg-black/40 p-2 font-mono text-[10px] text-slate-300"
+                >
+                  unzip {{ generatedConfig?.site?.siteName || "project" }}.zip
+                </div>
+              </div>
+
+              <!-- Step 3: Install -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div
+                  class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide"
+                >
+                  Step 3
+                </div>
+                <div class="text-lg font-bold text-white mb-1">Install</div>
+                <p class="text-xs text-slate-400">Install dependencies.</p>
+                <div
+                  class="mt-4 rounded bg-black/40 p-2 font-mono text-[10px] text-emerald-400"
+                >
+                  npm install
+                </div>
+              </div>
+
+              <!-- Step 4: Run -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div
+                  class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide"
+                >
+                  Step 4
+                </div>
+                <div class="text-lg font-bold text-white mb-1">Run</div>
+                <p class="text-xs text-slate-400">Start the dev server.</p>
+                <div
+                  class="mt-4 rounded bg-black/40 p-2 font-mono text-[10px] text-emerald-400"
+                >
+                  npm run dev
+                </div>
               </div>
             </div>
 
-            <!-- Manual / JSON -->
-            <div v-else class="p-6 space-y-6">
-              <div class="grid gap-4 sm:grid-cols-2 h-full">
-                <!-- Actions -->
+            <!-- Tab 2: JSON -->
+            <div v-else-if="exportTab === 'json'">
+              <div class="grid md:grid-cols-[1fr_300px] gap-6">
                 <div
-                  class="p-4 rounded-xl border border-white/10 bg-white/5 space-y-4 flex flex-col justify-center"
+                  class="rounded-xl bg-black/40 border border-white/10 p-4 max-h-[400px] overflow-auto"
                 >
-                  <div class="text-center space-y-1">
-                    <div class="font-semibold text-white">Project Config</div>
-                    <p class="text-xs text-slate-400">
-                      Full JSON Configuration
+                  <pre
+                    class="text-xs font-mono text-slate-300 whitespace-pre-wrap break-all"
+                    >{{ exportJson }}</pre
+                  >
+                </div>
+                <div class="space-y-4">
+                  <div>
+                    <h3 class="text-lg font-bold text-white mb-2">
+                      Raw Configuration
+                    </h3>
+                    <p class="text-sm text-slate-400">
+                      This JSON contains your entire site definition including
+                      themes, pages, and sections.
                     </p>
                   </div>
-                  <div class="grid grid-cols-1 gap-3">
-                    <button
+                  <div class="space-y-2">
+                    <BaseButton
                       @click="copyJson"
-                      class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-white transition-colors border border-white/5"
+                      variant="secondary"
+                      size="sm"
+                      class="w-full"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        class="w-4 h-4 text-slate-400"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M15.988 3.012A2.25 2.25 0 0118 5.25v6.5A2.25 2.25 0 0115.75 14H13.5V7A2.5 2.5 0 0011 4.5H8.128a2.252 2.252 0 011.884-1.488A2.25 2.25 0 0112.25 1h1.5a2.25 2.25 0 012.238 2.012zM11.5 3.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v.25h-3v-.25z"
-                          clip-rule="evenodd"
-                        />
-                        <path
-                          fill-rule="evenodd"
-                          d="M2 7a1 1 0 011-1h8a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V7zm2 3.25a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75zm0 3.5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
                       Copy to Clipboard
-                    </button>
-                    <button
+                    </BaseButton>
+                    <BaseButton
                       @click="downloadJson"
-                      class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-white transition-colors border border-white/5"
+                      variant="secondary"
+                      size="sm"
+                      class="w-full"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        class="w-4 h-4 text-slate-400"
-                      >
-                        <path
-                          d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"
-                        />
-                        <path
-                          d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
-                        />
-                      </svg>
-                      Download .json
-                    </button>
+                      Download JSON
+                    </BaseButton>
                   </div>
-                </div>
-
-                <!-- Preview Box -->
-                <div
-                  @click="isJsonExpanded = true"
-                  class="group relative p-4 rounded-xl border border-white/10 bg-slate-900/80 cursor-pointer overflow-hidden hover:border-indigo-500/50 transition-all"
-                >
-                  <div
-                    class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <span
-                      class="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded-full uppercase font-bold tracking-wider"
-                      >Expand</span
-                    >
-                  </div>
-                  <div class="text-[10px] font-mono text-slate-500 mb-2">
-                    PREVIEW
-                  </div>
-                  <div
-                    class="text-[10px] text-slate-300 font-mono opacity-60 group-hover:opacity-100 transition-opacity"
-                  >
-                    {{ exportJson.slice(0, 300) }}...
-                  </div>
-                  <!-- Gradient Fade -->
-                  <div
-                    class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none"
-                  ></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <!-- Close Export Panel -->
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="text-center py-20 text-slate-500">
+        <p class="mb-4">Select a template and start generating your site!</p>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.perspective-1000 {
+  perspective: 1000px;
+}
+.animate-wiggle {
+  animation: wiggle 3s ease-in-out infinite;
+}
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+</style>

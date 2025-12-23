@@ -60,26 +60,65 @@ export function normalizePageConfig(input: any, opts: Opts): PageConfig {
     const obj = sec && typeof sec === "object" ? sec : {};
 
     // ✅ รองรับ schema แบบ { type, content: { ... } }
-    const merged: any = {
+    let merged: any = {
       ...obj,
       ...(obj.content && typeof obj.content === "object" ? obj.content : {}),
     };
-    delete merged.content;
+    // Ensure we don't accidentally nest content again if it was already flattened but left a trace?
+    // Actually the above spread is safe.
+    delete merged.content; // Remote nested content key
 
     // ✅ normalize type casing + alias
     let t = toStr(merged.type) || "hero";
-    if (t === "bloglist") t = "blogList"; // 🔥 key fix
+    // Handle Common AI Capitalization
+    t = t.charAt(0).toLowerCase() + t.slice(1);
+
+    if (t === "bloglist") t = "blogList";
+    if (t === "productlist") t = "productList";
+    if (t === "productdetail") t = "productDetail";
+
     merged.type = t;
 
     // ✅ id fallback
     merged.id = toStr(merged.id) || `${merged.type}-${i + 1}`;
 
-    // --- common field mapping
+    // --- common field mapping (Sync with client-side ai-parser.ts) ---
+
+    // 1. Hero Section Mapping
     if (merged.type === "hero") {
-      merged.headline =
-        toStr(merged.headline) || toStr(merged.title) || "Generated Preview";
-      merged.subheadline =
-        toStr(merged.subheadline) || toStr(merged.subtitle) || "";
+      // tag -> eyebrow
+      if (merged.tag && !merged.eyebrow) merged.eyebrow = merged.tag;
+
+      // title -> headline
+      if (merged.title && !merged.headline) merged.headline = merged.title;
+      // headline -> fallback
+      if (!merged.headline) merged.headline = "Generated Hero"; // Ensure not empty
+
+      // description -> subheadline
+      if (merged.description && !merged.subheadline)
+        merged.subheadline = merged.description;
+      if (merged.subtitle && !merged.subheadline)
+        merged.subheadline = merged.subtitle;
+
+      // actions -> primaryCta, secondaryCta (AI often sends 'actions' array)
+      if (Array.isArray(merged.actions)) {
+        if (merged.actions.length > 0 && !merged.primaryCta) {
+          merged.primaryCta = {
+            label:
+              merged.actions[0].label ||
+              merged.actions[0].text ||
+              "Get Started",
+            href: merged.actions[0].link || merged.actions[0].href || "#",
+          };
+        }
+        if (merged.actions.length > 1 && !merged.secondaryCta) {
+          merged.secondaryCta = {
+            label:
+              merged.actions[1].label || merged.actions[1].text || "Learn More",
+            href: merged.actions[1].link || merged.actions[1].href || "#",
+          };
+        }
+      }
 
       // ✅ Phase 9: Inject Hero Image
       if (!merged.image) {
@@ -87,9 +126,14 @@ export function normalizePageConfig(input: any, opts: Opts): PageConfig {
       }
     }
 
+    // 2. Features Section
     if (merged.type === "features") {
       merged.title = toStr(merged.title) || "Features";
+      // description -> subtitle
+      if (merged.description && !merged.subtitle)
+        merged.subtitle = merged.description;
       if (merged.subtitle != null) merged.subtitle = toStr(merged.subtitle);
+
       merged.items = Array.isArray(merged.items)
         ? merged.items.map((it: any) => ({
             title: toStr(it?.title) || "Feature",
@@ -105,6 +149,11 @@ export function normalizePageConfig(input: any, opts: Opts): PageConfig {
             quote: toStr(it?.quote) || "",
             name: toStr(it?.name) || "",
             role: toStr(it?.role) || undefined,
+            avatar:
+              it?.avatar ||
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${toStr(
+                it?.name
+              )}`,
           }))
         : [];
     }
@@ -112,21 +161,25 @@ export function normalizePageConfig(input: any, opts: Opts): PageConfig {
     if (merged.type === "team") {
       merged.title = toStr(merged.title) || "Our Team";
       if (merged.subtitle != null) merged.subtitle = toStr(merged.subtitle);
-      merged.items = []; // Team uses 'members' but let's be safe
-      merged.members = Array.isArray(merged.members)
-        ? merged.members.map((it: any, midx: number) => ({
-            name: toStr(it?.name) || "Member Name",
-            role: toStr(it?.role) || "Role",
-            bio: toStr(it?.bio),
-            // ✅ Phase 9: Inject Avatar
-            avatar:
-              toStr(it?.avatar) ||
-              `https://api.dicebear.com/7.x/avataaars/svg?seed=${
-                toStr(it?.name) || opts.seed + i + midx
-              }`,
-            socials: it?.socials || {},
-          }))
+      // Ensure merged.items is populated if members exists
+      const members = Array.isArray(merged.members)
+        ? merged.members
+        : Array.isArray(merged.items)
+        ? merged.items
         : [];
+
+      merged.items = members.map((it: any, midx: number) => ({
+        name: toStr(it?.name) || "Member Name",
+        role: toStr(it?.role) || "Role",
+        bio: toStr(it?.bio),
+        // ✅ Phase 9: Inject Avatar
+        avatar:
+          toStr(it?.avatar) ||
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+            toStr(it?.name) || opts.seed + i + midx
+          }`,
+        socials: it?.socials || {},
+      }));
     }
 
     if (merged.type === "faq") {

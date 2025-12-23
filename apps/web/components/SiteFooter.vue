@@ -7,7 +7,7 @@ const props = defineProps<{
 }>();
 
 const year = new Date().getFullYear();
-const siteName = computed(() => props.config.site.siteName || "Company");
+const siteName = computed(() => props.config.site?.siteName || "Company");
 </script>
 
 <template>

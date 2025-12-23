@@ -19,10 +19,13 @@ const props = defineProps<{
   error: string | null;
   user: any; // Supabase user
   streamingLog?: string;
+  hasResult?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "generate"): void;
+  (e: "download:kit"): void;
+  (e: "download:json"): void;
 }>();
 
 const templates = [

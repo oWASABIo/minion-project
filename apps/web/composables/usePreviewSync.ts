@@ -18,16 +18,23 @@ export function usePreviewSync() {
     };
   }
 
+  const getIframeWindow = () => {
+    if (!previewIframe.value) return null;
+    // Check if it's a component with exposed ref
+    if ((previewIframe.value as any).iframeRef) {
+      return (previewIframe.value as any).iframeRef.contentWindow;
+    }
+    // Fallback: assume it's the element itself
+    return (previewIframe.value as unknown as HTMLIFrameElement).contentWindow;
+  };
+
   const syncPreview = () => {
-    if (
-      !previewIframe.value?.contentWindow ||
-      !isPreviewReady.value ||
-      !currentPageConfig.value
-    ) {
+    const win = getIframeWindow();
+    if (!win || !isPreviewReady.value || !currentPageConfig.value) {
       return;
     }
 
-    previewIframe.value.contentWindow.postMessage(
+    win.postMessage(
       {
         type: "updateConfig",
         config: JSON.parse(JSON.stringify(currentPageConfig.value)), // Deep clone to be safe
@@ -40,14 +47,10 @@ export function usePreviewSync() {
 
   // Immediate sync without debounce (for initial load)
   const forceSyncPreview = () => {
-    if (
-      !previewIframe.value?.contentWindow ||
-      !isPreviewReady.value ||
-      !currentPageConfig.value
-    )
-      return;
+    const win = getIframeWindow();
+    if (!win || !isPreviewReady.value || !currentPageConfig.value) return;
 
-    previewIframe.value.contentWindow.postMessage(
+    win.postMessage(
       {
         type: "updateConfig",
         config: JSON.parse(JSON.stringify(currentPageConfig.value)),
