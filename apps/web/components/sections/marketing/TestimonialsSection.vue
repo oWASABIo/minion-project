@@ -54,7 +54,7 @@ const props = defineProps<{
 
           <div
             class="mt-6 flex items-center gap-3 border-t pt-6 transition-colors"
-            style="bordercolor: var(--border-color)"
+            :style="{ borderColor: 'var(--border-color)' }"
           >
             <div
               class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-inner"

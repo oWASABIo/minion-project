@@ -20,17 +20,34 @@ import PreviewFrame from "~/components/builder/PreviewFrame.vue";
 import BaseButton from "~/components/ui/BaseButton.vue";
 import ConfirmModal from "~/components/ui/ConfirmModal.vue";
 import draggableComponent from "vuedraggable";
+import { parseAIResponse } from "~/utils/ai-parser";
+import { useBuilderStore } from "~/stores/builder";
+import { storeToRefs } from "pinia";
+
 const draggable = draggableComponent as any;
+
+// Store
+const store = useBuilderStore();
+const {
+  projectConfig: generatedConfig, // Alias for backward compatibility
+  currentPageConfig,
+  selectedSectionId,
+  selectedSection,
+  historyIndex,
+  history,
+  hasResult,
+  viewport,
+  currentPageId,
+  isEditMode,
+  generation, // [NEW] Generation Config
+} = storeToRefs(store);
 
 // Computed for Drag & Drop
 const currentSections = computed({
-  get: () => currentPageConfig.value?.sections || [],
+  get: () => store.currentSections,
   set: (newSections: Section[]) => {
-    if (!generatedConfig.value?.pages || !currentPageId.value) return;
-    const page = generatedConfig.value.pages[currentPageId.value];
-    if (page) {
-      page.sections = newSections;
-    }
+    store.setSections(newSections);
+    // Trigger sync handled by watcher on projectConfig
   },
 });
 
@@ -56,93 +73,42 @@ type Stack = (typeof stacks)[number];
 const modeOptions = ["auto", "mock", "live"] as const;
 type Mode = (typeof modeOptions)[number];
 
-const templateType = ref<template>("landing");
-const stack = ref<Stack>("nuxt");
-const mode = ref<Mode>("auto");
+// DEPRECATED local state: templateType, stack, mode, etc. replaced by store.generation
 
-const wordpressBaseUrl = ref<string>("");
-const wordpressRestBase = ref<string>("/wp-json/wp/v2");
-
-const brief = ref("");
 const route = useRoute();
 const router = useRouter(); // Define router
 const loading = ref(!!route.query.id); // Immediate loading if editing
 const stage = ref<"idle" | "analyzing" | "generating" | "rendering">("idle");
 const progressMessage = ref("");
 const error = ref<string | null>(null);
-const exportTab = ref<"quick" | "manual">("quick");
+const brief = ref("");
 
-const generatedConfig = ref<ProjectConfig | null>(null);
-const currentPageId = ref<string>("home");
-const isEditMode = ref(false);
-const selectedSectionId = ref<string | undefined>(undefined);
 const isJsonExpanded = ref(false);
-const viewport = ref<"desktop" | "tablet" | "mobile">("desktop");
-const hasResult = computed(() => !!generatedConfig.value);
 
-const selectedSection = computed(() => {
-  if (!selectedSectionId.value || !currentPageConfig.value) return null;
-  return currentPageConfig.value.sections.find(
-    (s) => s.id === selectedSectionId.value
-  );
-});
-
-function onUpdateSection(updatedEndpoint: Section) {
-  if (!generatedConfig.value || !currentPageId.value) return;
-  const page = generatedConfig.value.pages[currentPageId.value];
-  if (!page) return;
-
-  const idx = page.sections.findIndex((s) => s.id === updatedEndpoint.id);
-  if (idx !== -1) {
-    page.sections[idx] = updatedEndpoint;
-  }
-}
-
-const currentPageConfig = computed(() => {
-  if (!generatedConfig.value) return undefined;
-  return generatedConfig.value.pages?.[currentPageId.value];
-});
-
-// Iframe Communication
-const previewIframe = ref<HTMLIFrameElement | null>(null);
-const isPreviewReady = ref(false);
+// Utils
 const sectionEditorRef = ref<any>(null);
-
-function syncPreview() {
-  if (
-    !previewIframe.value?.contentWindow ||
-    !isPreviewReady.value ||
-    !currentPageConfig.value
-  )
-    return;
-
-  previewIframe.value.contentWindow.postMessage(
-    {
-      type: "updateConfig",
-      config: JSON.parse(JSON.stringify(currentPageConfig.value)), // Deep clone to be safe
-      isEditMode: isEditMode.value,
-      selectedSectionId: selectedSectionId.value,
-    },
-    "*"
-  );
-}
+const { previewIframe, isPreviewReady, syncPreview, forceSyncPreview } =
+  usePreviewSync();
 
 // Listen for messages from Iframe
 function onMessage(event: MessageEvent) {
   const data = event.data;
   if (!data) return;
 
-  if (data.type === "previewReady") {
+  if (data.type === "ready") {
     isPreviewReady.value = true;
     syncPreview();
   } else if (data.type === "selectSection") {
-    selectedSectionId.value = data.id;
+    isPreviewReady.value = true;
+    syncPreview(); // Initial sync can be debounced or immediate, debounced is fine.
+  } else if (data.type === "selectSection") {
+    store.selectSection(data.id);
   } else if (data.type === "reorderSection") {
     onReorderSection(data);
   } else if (data.type === "selectField") {
     // Visual Editing: Select section and focus field
-    selectedSectionId.value = data.sectionId;
-    isEditMode.value = true;
+    store.selectSection(data.sectionId);
+    store.isEditMode = true;
 
     // Defer focus to allow UI connection
     nextTick(() => {
@@ -150,6 +116,9 @@ function onMessage(event: MessageEvent) {
         sectionEditorRef.value.focusField(data.field);
       }
     });
+  } else if (data.type === "updateField") {
+    // Inline Edit
+    store.updateSectionField(data.sectionId, data.field, data.value);
   }
 }
 
@@ -172,7 +141,7 @@ onUnmounted(() => {
 // Helper to get available pages list
 const pagesList = computed(() => {
   const config = generatedConfig.value;
-  if (!config) return [];
+  if (!config || !config.pages) return [];
   return Object.keys(config.pages).map((id) => ({
     id,
     route: config.pages[id]?.meta?.note,
@@ -186,9 +155,9 @@ watch(
   user,
   (u) => {
     if (!u) {
-      mode.value = "mock";
+      store.generation.mode = "mock";
     } else {
-      mode.value = "auto";
+      store.generation.mode = "auto";
     }
   },
   { immediate: true }
@@ -267,40 +236,84 @@ function handleAuthConfirm() {
   navigateTo("/login");
 }
 
+const streamingContent = ref("");
+
 async function createProject() {
   console.log("createProject called");
-  // Reset
-  generatedConfig.value = null;
+  store.setProjectConfig(null as any);
   stage.value = "analyzing";
-  progressMessage.value = "Analyzing requirements...";
+  progressMessage.value = "Connecting to Gemini...";
   error.value = null;
   loading.value = true;
-  currentPageId.value = "home";
+  store.currentPageId = "home";
+  streamingContent.value = "";
 
   try {
-    console.log("Fetching /api/generate-page...");
-    const { config, error: err } = await $fetch<{
-      config: ProjectConfig;
-      error?: string;
-    }>("/api/generate-page", {
+    const isStream = false; // Disable stream to ensure multi-page generation & normalization works
+
+    // Use native fetch to support streaming
+    const response = await fetch("/api/generate-page", {
       method: "POST",
-      body: {
-        template: templateType.value,
-        stack: stack.value,
-        mode: mode.value,
-        brief: brief.value,
-        wordpressBaseUrl: wordpressBaseUrl.value,
-        wordpressRestBase: wordpressRestBase.value,
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        template: store.generation.template,
+        stack: store.generation.stack,
+        mode: store.generation.mode,
+        brief: store.generation.brief,
+        wordpressBaseUrl: store.generation.wordpressBaseUrl,
+        wordpressRestBase: store.generation.wordpressRestBase,
+        stream: isStream,
+      }),
     });
 
-    if (err) {
-      error.value = err;
-      return;
+    if (!response.body) throw new Error("No response body");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let resultText = "";
+
+    stage.value = "generating"; // Update stage
+    progressMessage.value = "Streaming content...";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      resultText += chunk;
+      streamingContent.value = resultText;
     }
 
+    // Final Parse
+    // Parse using our robust utility which now returns a proper ProjectConfig
+    const config = parseAIResponse(resultText);
+
+    store.setProjectConfig(config);
+
+    // Ensure we select a valid page ID
+    if (config.pages && Object.keys(config.pages).length > 0) {
+      if (!config.pages["home"]) {
+        const firstPageId = Object.keys(config.pages)[0];
+        if (firstPageId) {
+          store.currentPageId = firstPageId;
+        }
+      } else {
+        store.currentPageId = "home";
+      }
+    }
+
+    console.log("[Builder] Config set. State:", {
+      pageId: store.currentPageId,
+      configKeys: config.pages ? Object.keys(config.pages) : "no-pages",
+      storeHasConfig: !!store.projectConfig,
+    });
+
+    // Force immediate sync to update iframe without delay
+    forceSyncPreview();
+
     stage.value = "rendering";
-    generatedConfig.value = config;
 
     // Confetti
     confetti({
@@ -308,12 +321,21 @@ async function createProject() {
       spread: 70,
       origin: { y: 0.6 },
     });
-  } catch (e: any) {
-    console.error(e);
-    error.value = e.message || "Failed to generate project.";
+  } catch (err: any) {
+    console.error("JSON Parse Error:", err);
+    // Handle JSON parsing errors specifically if wrapped in known structure or simple message
+    if (
+      err.message &&
+      (err.message.includes("JSON") || err.message.includes("parse"))
+    ) {
+      error.value = "Failed to parse AI response. Retrying might help.";
+    } else {
+      error.value = err.message || "Failed to generate project.";
+    }
   } finally {
     loading.value = false;
     stage.value = "idle";
+    streamingContent.value = ""; // Clear buffer
   }
 }
 
@@ -325,10 +347,11 @@ async function loadProject(id: string) {
   try {
     const { project } = await $fetch<{ project: any }>(`/api/projects/${id}`);
     if (project && project.config) {
-      generatedConfig.value = project.config;
-      brief.value =
-        project.config.meta?.brief || project.config.meta?.note || ""; // Restore brief
-      templateType.value = project.config.template || "landing";
+      store.setProjectConfig(project.config);
+      // Restore generation state
+      store.generation.brief =
+        project.config?.meta?.brief || project.config?.meta?.note || "";
+      store.generation.template = project.config?.template || "landing";
       // Restore other props if saved
     }
   } catch (e) {
@@ -348,11 +371,11 @@ onMounted(() => {
     if (route.query.template) {
       const t = route.query.template as string;
       if (templates.includes(t as any)) {
-        templateType.value = t as template;
+        store.generation.template = t as template;
       }
     }
     if (route.query.brief) {
-      brief.value = route.query.brief as string;
+      store.generation.brief = route.query.brief as string;
     }
   }
 });
@@ -373,7 +396,7 @@ async function downloadKit() {
       method: "POST",
       body: {
         config: generatedConfig.value,
-        stack: stack.value,
+        stack: store.generation.stack,
       },
       responseType: "blob",
     });
@@ -392,51 +415,14 @@ async function downloadKit() {
   }
 }
 
-const history = ref<string[]>([]);
-const historyIndex = ref(-1);
-let isHistoryNavigating = false;
-
-// Initialize history when config is generated
-watch(
-  generatedConfig,
-  (newVal) => {
-    if (isHistoryNavigating || !newVal) return;
-    const state = JSON.stringify(newVal);
-    if (historyIndex.value < history.value.length - 1) {
-      history.value = history.value.slice(0, historyIndex.value + 1);
-    }
-    history.value.push(state);
-    historyIndex.value++;
-    if (history.value.length > 20) {
-      history.value.shift();
-      historyIndex.value--;
-    }
-  },
-  { deep: true }
-);
+/* History logic handled by useBuilderStore */
 
 function undo() {
-  if (historyIndex.value > 0) {
-    isHistoryNavigating = true;
-    historyIndex.value--;
-    const state = history.value[historyIndex.value];
-    if (state) generatedConfig.value = JSON.parse(state);
-    nextTick(() => {
-      isHistoryNavigating = false;
-    });
-  }
+  store.undo();
 }
 
 function redo() {
-  if (historyIndex.value < history.value.length - 1) {
-    isHistoryNavigating = true;
-    historyIndex.value++;
-    const state = history.value[historyIndex.value];
-    if (state) generatedConfig.value = JSON.parse(state);
-    nextTick(() => {
-      isHistoryNavigating = false;
-    });
-  }
+  store.redo();
 }
 
 function onReorderSection({
@@ -446,32 +432,27 @@ function onReorderSection({
   id: string;
   direction: "up" | "down";
 }) {
-  if (!generatedConfig.value) return;
-  const page = generatedConfig.value.pages?.[currentPageId.value];
-  if (!page || !page.sections) return;
-
-  const index = page.sections.findIndex((s) => s.id === id);
+  const sections = [...store.currentSections];
+  const index = sections.findIndex((s) => s.id === id);
   if (index === -1) return;
 
-  const newSections = [...page.sections];
-
   if (direction === "up" && index > 0) {
-    const prev = newSections[index - 1];
-    const curr = newSections[index];
+    const prev = sections[index - 1];
+    const curr = sections[index];
     if (prev && curr) {
-      newSections[index] = prev;
-      newSections[index - 1] = curr;
+      sections[index] = prev;
+      sections[index - 1] = curr;
     }
-  } else if (direction === "down" && index < newSections.length - 1) {
-    const next = newSections[index + 1];
-    const curr = newSections[index];
+  } else if (direction === "down" && index < sections.length - 1) {
+    const next = sections[index + 1];
+    const curr = sections[index];
     if (next && curr) {
-      newSections[index] = next;
-      newSections[index + 1] = curr;
+      sections[index] = next;
+      sections[index + 1] = curr;
     }
   }
 
-  page.sections = newSections;
+  store.setSections(sections);
 }
 
 function downloadJson() {
@@ -488,6 +469,7 @@ function downloadJson() {
 }
 const isPublished = ref(false);
 const publishLoading = ref(false);
+const exportTab = ref<"quick-setup" | "json">("quick-setup");
 const liveUrl = computed(() => {
   if (import.meta.client) {
     return `${window.location.origin}/p/${route.query.id}`;
@@ -587,17 +569,13 @@ async function handleConfirmPublish() {
     <div class="mx-auto max-w-[1600px] px-6 py-10 pt-24 space-y-8">
       <!-- 1. Configuration Form -->
       <ConfigSidebar
-        v-model:templateType="templateType"
-        v-model:stack="stack"
-        v-model:mode="mode"
-        v-model:brief="brief"
-        v-model:wordpressBaseUrl="wordpressBaseUrl"
-        v-model:wordpressRestBase="wordpressRestBase"
         :loading="loading"
         :stage="stage"
         :progressMessage="progressMessage"
         :error="error"
         :user="user"
+        :streaming-log="streamingContent"
+        :has-result="hasResult"
         @generate="createProject"
       />
 
@@ -628,8 +606,6 @@ async function handleConfirmPublish() {
             <div v-if="selectedSection">
               <SectionEditor
                 ref="sectionEditorRef"
-                :section="selectedSection"
-                @update:section="onUpdateSection"
                 @close="selectedSectionId = undefined"
               />
             </div>
@@ -706,11 +682,7 @@ async function handleConfirmPublish() {
               >
                 Design
               </h3>
-              <StyleControlPanel
-                v-if="generatedConfig"
-                :config="generatedConfig"
-                @update:config="(val) => (generatedConfig = val)"
-              />
+              <StyleControlPanel v-if="generatedConfig" />
             </div>
           </div>
 
@@ -820,398 +792,227 @@ async function handleConfirmPublish() {
 
           <!-- Preview Toolbar -->
           <PreviewToolbar
+            v-if="store.currentSections"
             v-model:viewport="viewport"
             :can-undo="historyIndex > 0"
             :can-redo="historyIndex < history.length - 1"
             @undo="undo"
             @redo="redo"
+            @export-json="downloadJson"
+            @copy-json="copyJson"
           />
 
-          <!-- Preview Iframe -->
-          <NuxtErrorBoundary>
-            <div class="relative">
-              <PreviewFrame
-                v-model:viewport="viewport"
-                @iframe-load="(el) => (previewIframe = el)"
-              />
-            </div>
-          </NuxtErrorBoundary>
-
-          <!-- Export Section (Bottom of Preview) -->
+          <!-- Iframe Container -->
           <div
-            class="rounded-2xl border border-white/10 bg-white/5 overflow-hidden"
+            class="h-[calc(100vh-12rem)] flex justify-center perspective-1000"
           >
-            <div class="flex border-b border-white/10 bg-white/5">
+            <PreviewFrame
+              ref="previewIframe"
+              :src="liveUrl"
+              :viewport="viewport"
+              class="shadow-2xl transition-all duration-300 transform origin-top"
+              :class="{
+                'w-full h-full': viewport === 'desktop',
+                'w-[768px] h-full rounded-b-xl border-x border-b border-white/10':
+                  viewport === 'tablet',
+                'w-[375px] h-full rounded-2xl border border-white/10 my-4':
+                  viewport === 'mobile',
+              }"
+            />
+          </div>
+
+          <!-- Export Interface (Tabs) -->
+          <div v-if="hasResult" class="mt-8 animate-fade-in-up">
+            <!-- Tabs Navigation -->
+            <div class="flex items-center gap-6 border-b border-white/10 mb-6">
               <button
-                @click="exportTab = 'quick'"
-                class="px-6 py-3 text-sm font-medium transition-colors"
+                @click="exportTab = 'quick-setup'"
+                class="pb-2 text-sm font-medium transition-colors border-b-2"
                 :class="
-                  exportTab === 'quick'
-                    ? 'text-white bg-white/5'
-                    : 'text-slate-400 hover:text-slate-200'
+                  exportTab === 'quick-setup'
+                    ? 'text-indigo-400 border-indigo-400'
+                    : 'text-slate-400 border-transparent hover:text-white'
                 "
               >
-                Quick Start
+                🚀 Quick Setup
               </button>
               <button
-                @click="exportTab = 'manual'"
-                class="px-6 py-3 text-sm font-medium transition-colors"
+                @click="exportTab = 'json'"
+                class="pb-2 text-sm font-medium transition-colors border-b-2"
                 :class="
-                  exportTab === 'manual'
-                    ? 'text-white bg-white/5'
-                    : 'text-slate-400 hover:text-slate-200'
+                  exportTab === 'json'
+                    ? 'text-indigo-400 border-indigo-400'
+                    : 'text-slate-400 border-transparent hover:text-white'
                 "
               >
-                Manual / JSON
+                📄 JSON Config
               </button>
             </div>
-            <!-- Export Content -->
-            <!-- Quick Start -->
-            <div v-if="exportTab === 'quick'" class="p-6 space-y-6">
-              <div class="space-y-4">
-                <div
-                  class="rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-4"
+
+            <!-- Tab 1: Quick Setup -->
+            <div
+              v-if="exportTab === 'quick-setup'"
+              class="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
+            >
+              <div class="col-span-full mb-2">
+                <h3
+                  class="text-xl font-bold text-white flex items-center gap-2"
                 >
-                  <h3
-                    class="text-lg font-semibold text-white mb-2 flex items-center gap-2"
+                  Use with
+                  <span class="capitalize">{{ generation.stack }}</span>
+                </h3>
+                <p class="text-sm text-slate-400">
+                  Follow these steps to get running in minutes.
+                </p>
+              </div>
+
+              <!-- Step 1: Download -->
+              <div
+                class="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col justify-between"
+              >
+                <div>
+                  <div
+                    class="text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wide"
                   >
-                    🚀 Launch your
-                    {{ generatedConfig?.meta?.stack || stack || "App" }}
-                  </h3>
-                  <p class="text-sm text-slate-300">
-                    Your kit is ready. Follow these steps to get started with
-                    <strong>{{ generatedConfig?.meta?.stack || stack }}</strong
-                    >.
+                    Step 1
+                  </div>
+                  <div class="text-lg font-bold text-white mb-1">Download</div>
+                  <p class="text-xs text-slate-400 mb-4">
+                    Get the full source code configured for
+                    {{ generation.stack }}.
                   </p>
                 </div>
-
-                <div
-                  class="space-y-4 bg-slate-900/50 p-4 rounded-xl border border-white/5"
-                >
-                  <!-- Nuxt Instructions -->
-                  <div
-                    v-if="
-                      ['nuxt'].includes(generatedConfig?.meta?.stack || stack)
-                    "
-                    class="space-y-6"
+                <div class="space-y-2">
+                  <BaseButton
+                    @click="downloadKit"
+                    variant="primary"
+                    size="sm"
+                    class="w-full"
                   >
-                    <!-- Step 1 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >1</span
-                        >
-                        Initialize Project
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-npx nuxi@latest init my-landing</pre
-                        >
-                        <pre class="text-xs font-mono text-emerald-400">
-cd my-landing</pre
-                        >
-                        <pre class="text-xs font-mono text-emerald-400">
-npm install</pre
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >2</span
-                        >
-                        Install TailwindCSS
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-npm install -D @nuxtjs/tailwindcss</pre
-                        >
-                        <p class="text-[10px] text-slate-500 pt-1">
-                          Add to nuxt.config.ts:
-                        </p>
-                        <pre class="text-xs font-mono text-slate-300">
-modules: ['@nuxtjs/tailwindcss']</pre
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Step 3 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >3</span
-                        >
-                        Add Minions Config
-                      </h4>
-                      <p class="text-xs text-slate-400 mb-2 pl-7">
-                        Copy the `tailwind.config.js` and `app.vue` from the
-                        downloaded kit.
-                      </p>
-                    </div>
-                  </div>
-
-                  <!-- VUE + VITE SPECIFIC INSTRUCTIONS -->
-                  <div
-                    v-else-if="
-                      ['vue', 'vue-vite'].includes(
-                        generatedConfig?.meta?.stack || stack
-                      )
-                    "
-                    class="space-y-6"
-                  >
-                    <!-- Step 1 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >1</span
-                        >
-                        Download & Unzip
-                      </h4>
-                      <p class="text-xs text-slate-400 mb-2 pl-7">
-                        Download the .zip kit using the button below and extract
-                        it.
-                      </p>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >2</span
-                        >
-                        Install Dependencies
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-cd my-landing-kit</pre
-                        >
-                        <pre class="text-xs font-mono text-emerald-400">
-npm install</pre
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Step 3 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >3</span
-                        >
-                        Start Development
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-npm run dev</pre
-                        >
-                        <p class="text-[10px] text-slate-500 pt-1">
-                          Opens at http://localhost:5173
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-else-if="
-                      (generatedConfig?.meta?.stack || stack) === 'next' ||
-                      (generatedConfig?.meta?.stack || stack) === 'nextjs'
-                    "
-                    class="space-y-6"
-                  >
-                    <!-- Step 1 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >1</span
-                        >
-                        Create Next.js App
-                      </h4>
-                      <div
-                        class="rounded-lg bg-black/40 p-3 border border-white/5 space-y-2"
-                      >
-                        <pre class="text-xs font-mono text-emerald-400">
-npx create-next-app@latest my-site --typescript --tailwind --eslint</pre
-                        >
-                        <pre class="text-xs font-mono text-emerald-400">
-cd my-site</pre
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div>
-                      <h4
-                        class="flex items-center gap-2 text-sm font-semibold text-white mb-2"
-                      >
-                        <span
-                          class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs shrink-0"
-                          >2</span
-                        >
-                        Setup Components
-                      </h4>
-                      <p class="text-xs text-slate-400 mb-2 pl-7">
-                        Copy the `components/` folder and `page.tsx` from the
-                        kit to your project.
-                      </p>
-                    </div>
-                  </div>
-                  <!-- Fallback / Plain HTML -->
-                  <div v-else class="space-y-3">
-                    <p class="text-sm text-slate-400">
-                      Open <strong>index.html</strong> in your browser or serve
-                      with a static server.
-                    </p>
-                    <div
-                      class="group relative rounded-lg bg-black/50 px-4 py-3 font-mono text-sm text-indigo-300"
-                    >
-                      npx serve .
-                    </div>
-                  </div>
+                    Download Kit
+                  </BaseButton>
                 </div>
+              </div>
 
-                <button
-                  @click="downloadKit"
-                  class="mt-4 w-full inline-flex justify-center items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/25"
+              <!-- Step 2: Unzip -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div
+                  class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    class="w-5 h-5"
-                  >
-                    <path
-                      d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"
-                    />
-                    <path
-                      d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
-                    />
-                  </svg>
-                  Download {{ generatedConfig?.meta?.stack || stack }} Kit
-                </button>
+                  Step 2
+                </div>
+                <div class="text-lg font-bold text-white mb-1">Unzip</div>
+                <p class="text-xs text-slate-400">
+                  Extract to your project folder.
+                </p>
+                <div
+                  class="mt-4 rounded bg-black/40 p-2 font-mono text-[10px] text-slate-300"
+                >
+                  unzip {{ generatedConfig?.site?.siteName || "project" }}.zip
+                </div>
+              </div>
+
+              <!-- Step 3: Install -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div
+                  class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide"
+                >
+                  Step 3
+                </div>
+                <div class="text-lg font-bold text-white mb-1">Install</div>
+                <p class="text-xs text-slate-400">Install dependencies.</p>
+                <div
+                  class="mt-4 rounded bg-black/40 p-2 font-mono text-[10px] text-emerald-400"
+                >
+                  npm install
+                </div>
+              </div>
+
+              <!-- Step 4: Run -->
+              <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div
+                  class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide"
+                >
+                  Step 4
+                </div>
+                <div class="text-lg font-bold text-white mb-1">Run</div>
+                <p class="text-xs text-slate-400">Start the dev server.</p>
+                <div
+                  class="mt-4 rounded bg-black/40 p-2 font-mono text-[10px] text-emerald-400"
+                >
+                  npm run dev
+                </div>
               </div>
             </div>
 
-            <!-- Manual / JSON -->
-            <div v-else class="p-6 space-y-6">
-              <div class="grid gap-4 sm:grid-cols-2 h-full">
-                <!-- Actions -->
+            <!-- Tab 2: JSON -->
+            <div v-else-if="exportTab === 'json'">
+              <div class="grid md:grid-cols-[1fr_300px] gap-6">
                 <div
-                  class="p-4 rounded-xl border border-white/10 bg-white/5 space-y-4 flex flex-col justify-center"
+                  class="rounded-xl bg-black/40 border border-white/10 p-4 max-h-[400px] overflow-auto"
                 >
-                  <div class="text-center space-y-1">
-                    <div class="font-semibold text-white">Project Config</div>
-                    <p class="text-xs text-slate-400">
-                      Full JSON Configuration
+                  <pre
+                    class="text-xs font-mono text-slate-300 whitespace-pre-wrap break-all"
+                    >{{ exportJson }}</pre
+                  >
+                </div>
+                <div class="space-y-4">
+                  <div>
+                    <h3 class="text-lg font-bold text-white mb-2">
+                      Raw Configuration
+                    </h3>
+                    <p class="text-sm text-slate-400">
+                      This JSON contains your entire site definition including
+                      themes, pages, and sections.
                     </p>
                   </div>
-                  <div class="grid grid-cols-1 gap-3">
-                    <button
+                  <div class="space-y-2">
+                    <BaseButton
                       @click="copyJson"
-                      class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-white transition-colors border border-white/5"
+                      variant="secondary"
+                      size="sm"
+                      class="w-full"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        class="w-4 h-4 text-slate-400"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M15.988 3.012A2.25 2.25 0 0118 5.25v6.5A2.25 2.25 0 0115.75 14H13.5V7A2.5 2.5 0 0011 4.5H8.128a2.252 2.252 0 011.884-1.488A2.25 2.25 0 0112.25 1h1.5a2.25 2.25 0 012.238 2.012zM11.5 3.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v.25h-3v-.25z"
-                          clip-rule="evenodd"
-                        />
-                        <path
-                          fill-rule="evenodd"
-                          d="M2 7a1 1 0 011-1h8a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V7zm2 3.25a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75zm0 3.5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
                       Copy to Clipboard
-                    </button>
-                    <button
+                    </BaseButton>
+                    <BaseButton
                       @click="downloadJson"
-                      class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-white transition-colors border border-white/5"
+                      variant="secondary"
+                      size="sm"
+                      class="w-full"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        class="w-4 h-4 text-slate-400"
-                      >
-                        <path
-                          d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"
-                        />
-                        <path
-                          d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"
-                        />
-                      </svg>
-                      Download .json
-                    </button>
+                      Download JSON
+                    </BaseButton>
                   </div>
-                </div>
-
-                <!-- Preview Box -->
-                <div
-                  @click="isJsonExpanded = true"
-                  class="group relative p-4 rounded-xl border border-white/10 bg-slate-900/80 cursor-pointer overflow-hidden hover:border-indigo-500/50 transition-all"
-                >
-                  <div
-                    class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <span
-                      class="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded-full uppercase font-bold tracking-wider"
-                      >Expand</span
-                    >
-                  </div>
-                  <div class="text-[10px] font-mono text-slate-500 mb-2">
-                    PREVIEW
-                  </div>
-                  <div
-                    class="text-[10px] text-slate-300 font-mono opacity-60 group-hover:opacity-100 transition-opacity"
-                  >
-                    {{ exportJson.slice(0, 300) }}...
-                  </div>
-                  <!-- Gradient Fade -->
-                  <div
-                    class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none"
-                  ></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <!-- Close Export Panel -->
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="text-center py-20 text-slate-500">
+        <p class="mb-4">Select a template and start generating your site!</p>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.perspective-1000 {
+  perspective: 1000px;
+}
+.animate-wiggle {
+  animation: wiggle 3s ease-in-out infinite;
+}
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+</style>

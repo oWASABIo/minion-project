@@ -64,6 +64,10 @@ const scale = computed(() => {
   }
   return 1;
 });
+
+defineExpose({
+  iframeRef,
+});
 </script>
 
 <template>

@@ -16,6 +16,7 @@ function onMessage(event: MessageEvent) {
   if (!data) return;
 
   if (data.type === "updateConfig") {
+    console.log("[Preview] Received Config:", data.config);
     config.value = data.config;
     if (data.isEditMode !== undefined) isEditMode.value = data.isEditMode;
     if (data.selectedSectionId !== undefined)
@@ -39,6 +40,9 @@ function onReorderSection(payload: { id: string; direction: "up" | "down" }) {
 onMounted(() => {
   window.addEventListener("message", onMessage);
 
+  // Notify parent that we are ready
+  window.parent.postMessage({ type: "ready" }, "*");
+
   // Visual Editing Click Handler
   window.addEventListener(
     "click",
@@ -57,13 +61,18 @@ onMounted(() => {
       const sectionId = sectionEl?.getAttribute("data-sb-section-id");
 
       if (fieldEl && sectionId) {
-        e.preventDefault();
+        // Prevent default navigation for links, but allow editing
+        if (target.tagName === "A") {
+          e.preventDefault();
+        }
         e.stopPropagation();
 
         const fieldKey = fieldEl.getAttribute("data-sb-field");
+        if (!fieldKey) return;
 
         console.log("[Preview] Field Selected:", sectionId, fieldKey);
 
+        // Notify parent to open sidebar
         window.parent.postMessage(
           {
             type: "selectField",
@@ -72,12 +81,54 @@ onMounted(() => {
           },
           "*"
         );
+
+        // --- INLINE EDITING LOGIC ---
+        // Enable contenteditable
+        fieldEl.contentEditable = "true";
+        fieldEl.focus();
+
+        // Optional: Select all text for easier replacement
+        // document.execCommand('selectAll', false, undefined);
+
+        // Handle BLUR (Save)
+        const onBlur = () => {
+          fieldEl.contentEditable = "false";
+          const newVal = fieldEl.innerText; // or innerHTML if we support rich text
+
+          window.parent.postMessage(
+            {
+              type: "updateField",
+              sectionId,
+              field: fieldKey,
+              value: newVal,
+            },
+            "*"
+          );
+
+          fieldEl.removeEventListener("blur", onBlur);
+          fieldEl.removeEventListener("keydown", onKeydown);
+        };
+
+        // Handle Keydown (Enter to save for single line)
+        const onKeydown = (ev: KeyboardEvent) => {
+          if (ev.key === "Enter") {
+            // If modifier (Shift+Enter), allow newline. Else save.
+            if (!ev.shiftKey) {
+              ev.preventDefault();
+              fieldEl.blur(); // Triggers onBlur
+            }
+          }
+        };
+
+        fieldEl.addEventListener("blur", onBlur);
+        fieldEl.addEventListener("keydown", onKeydown);
       }
     },
     true
-  ); // Capture phase to prevent internal handlers if needed
+  ); // Capture phase
 
-  window.parent.postMessage({ type: "previewReady" }, "*");
+  // Notify parent that we are ready
+  window.parent.postMessage({ type: "ready" }, "*");
 });
 
 onUnmounted(() => {

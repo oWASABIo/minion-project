@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import type { ProjectConfig } from "@minions/shared";
+import { useBuilderStore } from "~/stores/builder";
+import { storeToRefs } from "pinia";
 
-const props = defineProps<{
-  config: ProjectConfig;
-}>();
-
-const emit = defineEmits<{
-  (e: "update:config", val: ProjectConfig): void;
-}>();
+const store = useBuilderStore();
+const { projectConfig } = storeToRefs(store);
 
 // Simple color presets
 const COLORS = [
@@ -26,7 +22,8 @@ const COLORS = [
 const FONTS = ["Inter", "Roboto", "Poppins", "Playfair Display"];
 
 function updatePrimaryColor(color: string) {
-  const newConfig = { ...props.config };
+  if (!projectConfig.value) return;
+  const newConfig = JSON.parse(JSON.stringify(projectConfig.value)); // Deep clone
   if (!newConfig.site) newConfig.site = { siteName: "My Site" }; // Safety
 
   // Update Global
@@ -44,11 +41,12 @@ function updatePrimaryColor(color: string) {
     });
   }
 
-  emit("update:config", newConfig);
+  store.updateProjectConfig(newConfig);
 }
 
 function updateThemeMode(mode: "light" | "dark") {
-  const newConfig = { ...props.config };
+  if (!projectConfig.value) return;
+  const newConfig = JSON.parse(JSON.stringify(projectConfig.value));
   if (!newConfig.site) newConfig.site = { siteName: "My Site" };
 
   newConfig.site.themeMode = mode;
@@ -65,11 +63,12 @@ function updateThemeMode(mode: "light" | "dark") {
     });
   }
 
-  emit("update:config", newConfig);
+  store.updateProjectConfig(newConfig);
 }
 
 function updateFont(font: string) {
-  const newConfig = { ...props.config };
+  if (!projectConfig.value) return;
+  const newConfig = JSON.parse(JSON.stringify(projectConfig.value));
   if (!newConfig.site) newConfig.site = { siteName: "My Site" };
 
   newConfig.site.fontFamily = font;
@@ -99,7 +98,7 @@ function updateFont(font: string) {
   const fontName = font.replace(/ /g, "+");
   link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@300;400;500;600;700&display=swap`;
 
-  emit("update:config", newConfig);
+  store.updateProjectConfig(newConfig);
 }
 
 // TODO: Handle Font Family updates (requires loading font or updating CSS var)
@@ -120,7 +119,7 @@ function updateFont(font: string) {
           @click="updateThemeMode('light')"
           class="px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
           :class="
-            config.site?.themeMode === 'light'
+            projectConfig?.site?.themeMode === 'light'
               ? 'bg-white text-slate-900 shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           "
@@ -144,7 +143,7 @@ function updateFont(font: string) {
           @click="updateThemeMode('dark')"
           class="px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
           :class="
-            config.site?.themeMode !== 'light'
+            projectConfig?.site?.themeMode !== 'light'
               ? 'bg-slate-700 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           "
@@ -180,7 +179,7 @@ function updateFont(font: string) {
           @click="updatePrimaryColor(color)"
           class="w-full aspect-square rounded-full border-2 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
           :class="
-            config.site?.primaryColor === color
+            projectConfig?.site?.primaryColor === color
               ? 'border-white'
               : 'border-transparent'
           "
@@ -192,12 +191,12 @@ function updateFont(font: string) {
       <div class="mt-3 flex items-center gap-2">
         <input
           type="color"
-          :value="config.site?.primaryColor || '#4f46e5'"
+          :value="projectConfig?.site?.primaryColor || '#4f46e5'"
           @input="e => updatePrimaryColor((e.target as HTMLInputElement).value)"
           class="h-8 w-8 rounded cursor-pointer bg-transparent border-0 p-0"
         />
         <span class="text-xs text-slate-400 font-mono">{{
-          config.site?.primaryColor
+          projectConfig?.site?.primaryColor
         }}</span>
       </div>
     </div>

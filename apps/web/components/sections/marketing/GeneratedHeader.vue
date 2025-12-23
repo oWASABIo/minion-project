@@ -14,8 +14,10 @@ const props = defineProps<{
   config: PageConfig;
 }>();
 
-const siteName = computed(() => props.config.site.siteName || "Generated Site");
-const tagline = computed(() => props.config.site.tagline || "");
+const siteName = computed(
+  () => props.config.site?.siteName || "Generated Site"
+);
+const tagline = computed(() => props.config.site?.tagline || "");
 
 // TODO: In Phase 11, we will generate real menu items from config.pages
 const menuItems = computed(() => {

@@ -5,31 +5,28 @@ import BaseInput from "~/components/ui/BaseInput.vue";
 import BaseButton from "~/components/ui/BaseButton.vue";
 import BaseTextarea from "~/components/ui/BaseTextarea.vue";
 
+import { useBuilderStore } from "~/stores/builder";
+import { storeToRefs } from "pinia";
+
+const store = useBuilderStore();
+// Bi-directional binding via store
+const { generation } = storeToRefs(store);
+
 const props = defineProps<{
   loading: boolean;
   stage: string;
   progressMessage: string;
   error: string | null;
   user: any; // Supabase user
+  streamingLog?: string;
+  hasResult?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: "generate"): void;
+  (e: "download:kit"): void;
+  (e: "download:json"): void;
 }>();
-
-// Bi-directional binding
-const templateType = defineModel<string>("templateType", {
-  default: "landing",
-});
-const stack = defineModel<string>("stack", { default: "nuxt" });
-const mode = defineModel<string>("mode", { default: "auto" });
-const wordpressBaseUrl = defineModel<string>("wordpressBaseUrl", {
-  default: "",
-});
-const wordpressRestBase = defineModel<string>("wordpressRestBase", {
-  default: "/wp-json/wp/v2",
-});
-const brief = defineModel<string>("brief", { default: "" });
 
 const templates = [
   "landing",
@@ -40,13 +37,13 @@ const templates = [
   "portfolio",
 ];
 const stacks = ["nuxt", "vue-vite", "wordpress-theme", "nextjs"];
-const modeOptions = ["auto", "mock", "live"];
+const modeOptions = ["auto", "mock", "live"] as const;
 
 function applyExample(ex: PromptExample) {
-  brief.value = ex.brief;
-  if (ex.template) templateType.value = ex.template;
+  generation.value.brief = ex.brief;
+  if (ex.template) generation.value.template = ex.template;
   // Stack is not part of PromptExample currently
-  // if (ex.stack) stack.value = ex.stack;
+  // if (ex.stack) generation.value.stack = ex.stack;
 }
 </script>
 
@@ -54,11 +51,11 @@ function applyExample(ex: PromptExample) {
   <div class="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-6">
     <div class="grid gap-4 md:grid-cols-3">
       <BaseSelect
-        v-model="templateType"
+        v-model="generation.template"
         label="Template"
         :options="templates"
       />
-      <BaseSelect v-model="stack" label="Stack" :options="stacks" />
+      <BaseSelect v-model="generation.stack" label="Stack" :options="stacks" />
       <div>
         <label
           class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 uppercase tracking-wider"
@@ -68,9 +65,9 @@ function applyExample(ex: PromptExample) {
           <BaseButton
             v-for="m in modeOptions"
             :key="m"
-            @click="!user && m !== 'mock' ? null : (mode = m)"
+            @click="!user && m !== 'mock' ? null : (generation.mode = m)"
             size="xs"
-            :variant="mode === m ? 'primary' : 'secondary'"
+            :variant="generation.mode === m ? 'primary' : 'secondary'"
             :disabled="!user && m !== 'mock'"
             :title="!user && m !== 'mock' ? 'Login required for AI Mode' : ''"
           >
@@ -83,12 +80,12 @@ function applyExample(ex: PromptExample) {
     <!-- WP Inputs -->
     <div class="grid gap-4 md:grid-cols-2">
       <BaseInput
-        v-model="wordpressBaseUrl"
+        v-model="generation.wordpressBaseUrl"
         label="WP Base URL"
         placeholder="e.g. https://wordpress.org/news"
       />
       <BaseInput
-        v-model="wordpressRestBase"
+        v-model="generation.wordpressRestBase"
         label="WP Rest Base"
         placeholder="/wp-json/wp/v2"
       />
@@ -136,7 +133,7 @@ function applyExample(ex: PromptExample) {
         class="relative rounded-lg bg-black/40 p-1 border border-white/5 group-focus-within:border-indigo-500/50 transition-colors"
       >
         <BaseTextarea
-          v-model="brief"
+          v-model="generation.brief"
           :rows="5"
           placeholder="Describe your project idea in detail... (e.g. A portfolio for a photographer with a dark theme and gallery grid)"
           class="!bg-transparent !border-0 focus:!ring-0 !p-2 !text-slate-300 placeholder-slate-500 font-mono text-xs leading-relaxed"
@@ -168,5 +165,12 @@ function applyExample(ex: PromptExample) {
     </div>
 
     <p v-if="error" class="text-xs text-amber-300">{{ error }}</p>
+
+    <div
+      v-if="loading && streamingLog"
+      class="mt-4 p-3 rounded-lg bg-black/50 border border-indigo-500/30 font-mono text-[10px] text-indigo-300 max-h-48 overflow-y-auto whitespace-pre-wrap break-all shadow-inner"
+    >
+      {{ streamingLog.slice(-500) }}<span class="animate-pulse">_</span>
+    </div>
   </div>
 </template>

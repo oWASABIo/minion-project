@@ -919,7 +919,22 @@ const plugins = [
   
 ];
 
-const assets = {};
+const assets = {
+  "/index.mjs": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"1ef7f-XVJoKfB8kIUAqq5v+SLqwpjp6hU\"",
+    "mtime": "2025-12-23T11:03:33.610Z",
+    "size": 126847,
+    "path": "index.mjs"
+  },
+  "/index.mjs.map": {
+    "type": "application/json",
+    "etag": "\"7c5a9-/AoRT3o+YxqQGG+fmb/EPDvRThs\"",
+    "mtime": "2025-12-23T11:03:33.611Z",
+    "size": 509353,
+    "path": "index.mjs.map"
+  }
+};
 
 function readAsset (id) {
   const serverDir = dirname$1(fileURLToPath(globalThis._importMeta_.url));
@@ -3087,24 +3102,48 @@ function normalizePageConfig(input, opts) {
   out.sections = sections.map((sec, i) => {
     var _a2;
     const obj = sec && typeof sec === "object" ? sec : {};
-    const merged = {
+    let merged = {
       ...obj,
       ...obj.content && typeof obj.content === "object" ? obj.content : {}
     };
     delete merged.content;
     let t = toStr(merged.type) || "hero";
+    t = t.charAt(0).toLowerCase() + t.slice(1);
     if (t === "bloglist") t = "blogList";
+    if (t === "productlist") t = "productList";
+    if (t === "productdetail") t = "productDetail";
     merged.type = t;
     merged.id = toStr(merged.id) || `${merged.type}-${i + 1}`;
     if (merged.type === "hero") {
-      merged.headline = toStr(merged.headline) || toStr(merged.title) || "Generated Preview";
-      merged.subheadline = toStr(merged.subheadline) || toStr(merged.subtitle) || "";
+      if (merged.tag && !merged.eyebrow) merged.eyebrow = merged.tag;
+      if (merged.title && !merged.headline) merged.headline = merged.title;
+      if (!merged.headline) merged.headline = "Generated Hero";
+      if (merged.description && !merged.subheadline)
+        merged.subheadline = merged.description;
+      if (merged.subtitle && !merged.subheadline)
+        merged.subheadline = merged.subtitle;
+      if (Array.isArray(merged.actions)) {
+        if (merged.actions.length > 0 && !merged.primaryCta) {
+          merged.primaryCta = {
+            label: merged.actions[0].label || merged.actions[0].text || "Get Started",
+            href: merged.actions[0].link || merged.actions[0].href || "#"
+          };
+        }
+        if (merged.actions.length > 1 && !merged.secondaryCta) {
+          merged.secondaryCta = {
+            label: merged.actions[1].label || merged.actions[1].text || "Learn More",
+            href: merged.actions[1].link || merged.actions[1].href || "#"
+          };
+        }
+      }
       if (!merged.image) {
         merged.image = `https://picsum.photos/seed/${opts.seed + i}/800/600`;
       }
     }
     if (merged.type === "features") {
       merged.title = toStr(merged.title) || "Features";
+      if (merged.description && !merged.subtitle)
+        merged.subtitle = merged.description;
       if (merged.subtitle != null) merged.subtitle = toStr(merged.subtitle);
       merged.items = Array.isArray(merged.items) ? merged.items.map((it) => ({
         title: toStr(it == null ? void 0 : it.title) || "Feature",
@@ -3116,21 +3155,24 @@ function normalizePageConfig(input, opts) {
       merged.items = Array.isArray(merged.items) ? merged.items.map((it) => ({
         quote: toStr(it == null ? void 0 : it.quote) || "",
         name: toStr(it == null ? void 0 : it.name) || "",
-        role: toStr(it == null ? void 0 : it.role) || void 0
+        role: toStr(it == null ? void 0 : it.role) || void 0,
+        avatar: (it == null ? void 0 : it.avatar) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${toStr(
+          it == null ? void 0 : it.name
+        )}`
       })) : [];
     }
     if (merged.type === "team") {
       merged.title = toStr(merged.title) || "Our Team";
       if (merged.subtitle != null) merged.subtitle = toStr(merged.subtitle);
-      merged.items = [];
-      merged.members = Array.isArray(merged.members) ? merged.members.map((it, midx) => ({
+      const members = Array.isArray(merged.members) ? merged.members : Array.isArray(merged.items) ? merged.items : [];
+      merged.items = members.map((it, midx) => ({
         name: toStr(it == null ? void 0 : it.name) || "Member Name",
         role: toStr(it == null ? void 0 : it.role) || "Role",
         bio: toStr(it == null ? void 0 : it.bio),
         // ✅ Phase 9: Inject Avatar
         avatar: toStr(it == null ? void 0 : it.avatar) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${toStr(it == null ? void 0 : it.name) || opts.seed + i + midx}`,
         socials: (it == null ? void 0 : it.socials) || {}
-      })) : [];
+      }));
     }
     if (merged.type === "faq") {
       merged.title = toStr(merged.title) || "FAQ";
@@ -3219,7 +3261,7 @@ function getCurrentModel() {
   initKeys();
   const instance = genAIInstances[currentIndex];
   const config = useRuntimeConfig();
-  let modelName = config.geminiModel || "gemini-1.5-flash";
+  let modelName = config.geminiModel || "gemini-flash-latest";
   return instance.getGenerativeModel({
     model: modelName,
     generationConfig: {
@@ -3233,6 +3275,41 @@ function rotateKey() {
   console.warn(
     `[Gemini] Rotating key from index ${prevIndex} to ${currentIndex}`
   );
+}
+async function generateContentStreamWithRetry(prompt, maxRetries = 3) {
+  initKeys();
+  const totalAttempts = Math.max(genAIInstances.length * 2, maxRetries);
+  let lastError = null;
+  for (let i = 0; i < totalAttempts; i++) {
+    try {
+      const model = getCurrentModel();
+      const result = await model.generateContentStream(prompt);
+      return result;
+    } catch (err) {
+      lastError = err;
+      const msg = err.message || "";
+      const isQuota = msg.includes("429") || msg.includes("Quota") || msg.includes("Resource has been exhausted");
+      const isServer = msg.includes("503") || msg.includes("Overloaded") || msg.includes("500");
+      const isInvalidKey = msg.includes("API key not valid") || msg.includes("API_KEY_INVALID");
+      if (isQuota) {
+        console.warn(
+          `[Gemini] Quota exceeded on key index ${currentIndex}. Rotating...`
+        );
+        rotateKey();
+      } else if (isInvalidKey) {
+        console.warn(
+          `[Gemini] Invalid API Key detected at index ${currentIndex}. Rotating to next key...`
+        );
+        rotateKey();
+      } else if (isServer) {
+        console.warn(`[Gemini] Server error (503). Retrying...`);
+        await new Promise((r) => setTimeout(r, 1e3 * (i + 1)));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastError || new Error("Gemini streaming failed after retries.");
 }
 async function generateContentWithRetry(prompt, maxRetries = 3) {
   initKeys();
@@ -3277,48 +3354,87 @@ function validatePageConfig(config) {
   }
   if (!config.template) errors.push("Missing root field 'template'");
   if (!config.site) errors.push("Missing root field 'site'");
-  if (!Array.isArray(config.sections)) {
+  if (config.pages) {
+    if (typeof config.pages !== "object") {
+      errors.push("Field 'pages' must be an object");
+    } else {
+      Object.keys(config.pages).forEach((pageId) => {
+        const page = config.pages[pageId];
+        if (!page.sections || !Array.isArray(page.sections)) {
+          errors.push(`Page [${pageId}] missing 'sections' array`);
+        } else {
+          page.sections.forEach((section, index) => {
+            validateSection(section, index, errors, pageId);
+          });
+        }
+      });
+    }
+  } else if (!Array.isArray(config.sections)) {
     if (config.content && Array.isArray(config.content)) {
       errors.push(
         "Found 'content' array but expected 'sections'. Please rename 'content' to 'sections'."
       );
     } else {
-      errors.push("Missing or invalid 'sections' array");
+      errors.push("Missing or invalid 'sections' array (or 'pages' object)");
     }
   } else {
     config.sections.forEach((section, index) => {
-      if (!section.type) {
-        errors.push(`Section [${index}] missing 'type'`);
-        return;
-      }
-      if (!section.id) {
-        errors.push(`Section [${index}] (${section.type}) missing 'id'`);
-      }
-      switch (section.type) {
-        case "hero":
-          if (!section.headline)
-            errors.push(`Section [${index}] (hero) missing 'headline'`);
-          break;
-        case "features":
-          if (!Array.isArray(section.items))
-            errors.push(`Section [${index}] (features) missing 'items' array`);
-          break;
-        case "testimonials":
-          if (!Array.isArray(section.items))
-            errors.push(
-              `Section [${index}] (testimonials) missing 'items' array`
-            );
-          break;
-        case "pricing":
-          if (!Array.isArray(section.plans))
-            errors.push(`Section [${index}] (pricing) missing 'plans' array`);
-          break;
-        case "stats":
-          if (!Array.isArray(section.items))
-            errors.push(`Section [${index}] (stats) missing 'items' array`);
-          break;
-      }
+      validateSection(section, index, errors);
     });
+  }
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+function validateSection(section, index, errors, pageContext) {
+  const prefix = pageContext ? `Page [${pageContext}] Section [${index}]` : `Section [${index}]`;
+  const VOCABULARY = [
+    "hero",
+    "features",
+    "testimonials",
+    "faq",
+    "blogList",
+    "cta",
+    "pricing",
+    "stats",
+    "team"
+  ];
+  if (!section.type) {
+    errors.push(`${prefix} missing 'type'`);
+    return;
+  }
+  const typeLower = section.type.charAt(0).toLowerCase() + section.type.slice(1);
+  if (!VOCABULARY.includes(typeLower) && !VOCABULARY.includes(section.type)) {
+    errors.push(
+      `${prefix} has unknown type '${section.type}'. Allowed: ${VOCABULARY.join(
+        ", "
+      )}`
+    );
+  }
+  if (!section.id) {
+    errors.push(`${prefix} (${section.type}) missing 'id'`);
+  }
+  switch (section.type) {
+    case "hero":
+      if (!section.headline) errors.push(`${prefix} (hero) missing 'headline'`);
+      break;
+    case "features":
+      if (!Array.isArray(section.items))
+        errors.push(`${prefix} (features) missing 'items' array`);
+      break;
+    case "testimonials":
+      if (!Array.isArray(section.items))
+        errors.push(`${prefix} (testimonials) missing 'items' array`);
+      break;
+    case "pricing":
+      if (!Array.isArray(section.plans))
+        errors.push(`${prefix} (pricing) missing 'plans' array`);
+      break;
+    case "stats":
+      if (!Array.isArray(section.items))
+        errors.push(`${prefix} (stats) missing 'items' array`);
+      break;
   }
   return {
     valid: errors.length === 0,
@@ -3378,9 +3494,48 @@ const generatePage_post = defineEventHandler(async (event) => {
     let finalMode = "mock";
     let note = "";
     try {
+      if (body.stream && wantLive && hasKey) {
+        const templateSpec = gettemplateSpec(template);
+        const { systemPrompt } = await Promise.resolve().then(function () { return prompts; });
+        const fullPrompt = [
+          "System:",
+          systemPrompt(templateSpec, stack),
+          "---",
+          "User Context:",
+          `Brief: ${briefRaw}`,
+          `Directives: ${JSON.stringify(directives || {})}`,
+          cleanBrief ? `Clean Intent: ${cleanBrief}` : ""
+        ].join("\n");
+        return sendStream(
+          event,
+          new ReadableStream({
+            async start(controller) {
+              try {
+                const result = await generateContentStreamWithRetry(fullPrompt);
+                for await (const chunk of result.stream) {
+                  const chunkText = chunk.text();
+                  controller.enqueue(new TextEncoder().encode(chunkText));
+                }
+                controller.close();
+              } catch (err) {
+                console.error("[Streaming] Error:", err);
+                try {
+                  controller.enqueue(
+                    new TextEncoder().encode(`
+
+[ERROR]: ${err.message}`)
+                  );
+                } catch {
+                }
+                controller.close();
+              }
+            }
+          })
+        );
+      }
       if (mode === "mock" || !hasKey && wantLive) {
         finalMode = "mock";
-        note = !hasKey && wantLive ? "No Gemini key available. Fallback to mock." : "Mock mode requested.";
+        note = !hasKey && wantLive ? "Falling back to Mock Mode (No valid API Key found)." : "Mock Mode requested.";
         rawProject = buildMockProject({
           template,
           brief: cleanBrief || briefRaw,
@@ -3394,27 +3549,42 @@ const generatePage_post = defineEventHandler(async (event) => {
           finalMode = "live";
           const selectedTemplate = getRandomTemplate(template, seed);
           const templateId = selectedTemplate.id;
+          const VOCABULARY = [
+            "hero",
+            "features",
+            "testimonials",
+            "faq",
+            "blogList",
+            "cta",
+            "pricing",
+            "stats",
+            "team"
+            // "logos", // Future
+            // "steps", // Future
+          ];
           const baseSystemInstruction = [
-            "Role: AI Web Architect.",
-            "Task: Generate a JSON object matching the PageConfig schema.",
-            "Constraints:",
-            "- Output strictly JSON. No markdown fences.",
-            "- Use section types: hero, features, testimonials, faq, blogList, cta, pricing, stats, team.",
+            "Role: specialized UI Composer (The Smart Chef).",
+            "Task: Composition only. Select and arrange sections to build a high-conversion landing page.",
+            `Available Ingredients (Vocabulary): [${VOCABULARY.join(", ")}]`,
             `- Stack: ${stack}. Adjust content/structure conventions accordingly.`,
-            "- Flatten sections (do not nest under 'content').",
-            "- REQUIRED: Output must have a root 'sections' array.",
-            "- Decide 'site.themeMode' ('light' or 'dark') based on the vibe."
+            "CRITICAL RULES:",
+            "1. NO NEW INGREDIENTS: You must ONLY use the section types listed above. Do not invent 'map', 'contact', 'about', etc.",
+            "2. ADAPTIVE RECIPE: The provided structure is a recommendation. You MAY add, remove, or reorder sections if it better fits the specific User Brief.",
+            "3. FLATTEN: Output a flat 'sections' array. Do not nest content.",
+            "4. OUTPUT: strictly JSON matching PageConfig schema."
           ].join("\n");
-          const generatePageWithRepair = async (pageId, pageContextBrief, globalContext) => {
+          const generatePageWithRepair = async (pageId, pageContextBrief, globalContext, structure) => {
             const templateSpec = gettemplateSpec(template);
+            const structureInstruction = structure ? `Recommended Structure: [${structure.join(
+              ", "
+            )}]. 
+Guidance: Use this as a starting point. If the brief asks for something specific (e.g. "focus on trust"), add 'testimonials' or 'stats' even if not in the recommendation.` : "Recommendation: Create a logical conversion flow.";
             const instruction = [
               baseSystemInstruction,
-              `- Page ID: ${pageId}`,
-              `- Page template: ${template}. ${templateSpec.promptFocus}`,
+              `Page Context: ${pageId} (${templateSpec.promptFocus})`,
+              structureInstruction,
               globalContext.siteName ? `- Site Name: ${globalContext.siteName}` : "",
-              globalContext.tagline ? `- Tagline: ${globalContext.tagline}` : "",
-              globalContext.themeMode ? `- Theme Mode: ${globalContext.themeMode}` : "",
-              "- Change section order/variants based on brief."
+              globalContext.themeMode ? `- Theme Mode: ${globalContext.themeMode}` : ""
             ].join("\n");
             let currentPrompt = [
               "System:",
@@ -3422,7 +3592,9 @@ const generatePage_post = defineEventHandler(async (event) => {
               "---",
               "User Context:",
               `Brief: ${pageContextBrief}`,
-              `Directives: ${JSON.stringify(directives || {})}`
+              `Directives: ${JSON.stringify(directives || {})}`,
+              "---",
+              "Action: Generate JSON."
             ].join("\n");
             let lastError = "";
             const MAX_REPAIR_ATTEMPTS = 2;
@@ -3435,13 +3607,23 @@ const generatePage_post = defineEventHandler(async (event) => {
 
 SYSTEM ALERT: Your previous JSON was invalid. 
 Errors: ${lastError} 
-Please fix the JSON structure and return ONLY the JSON object.`;
+Please fix the JSON structure, remove unknown section types, and return ONLY the JSON object.`;
               }
               try {
                 const result = await generateContentWithRetry(currentPrompt);
                 const text = result.response.text();
                 if (!text) throw new Error("Empty response");
                 const json = extractJson(text);
+                if (!json.template) json.template = template;
+                if (!json.site) json.site = globalContext;
+                if (!json.sections && !json.pages) json.sections = [];
+                if (json.sections && Array.isArray(json.sections)) {
+                  json.sections.forEach((sec, idx) => {
+                    if (!sec.id) sec.id = `${sec.type || "section"}-${idx + 1}`;
+                    if (!sec.items && ["features", "testimonials", "stats"].includes(sec.type)) {
+                    }
+                  });
+                }
                 const validation = validatePageConfig(json);
                 if (validation.valid) {
                   return json;
@@ -3466,7 +3648,12 @@ Please fix the JSON structure and return ONLY the JSON object.`;
           try {
             const homeDef = selectedTemplate.pages.find((p) => p.id === "home");
             const homeBrief = `${cleanBrief || briefRaw}. ${(homeDef == null ? void 0 : homeDef.promptFocus) || "Main landing page."}`;
-            const rawHome = await generatePageWithRepair("home", homeBrief, {});
+            const rawHome = await generatePageWithRepair(
+              "home",
+              homeBrief,
+              {},
+              homeDef == null ? void 0 : homeDef.structure
+            );
             siteContext = {
               siteName: ((_b = rawHome.site) == null ? void 0 : _b.siteName) || "Generated Site",
               tagline: ((_c = rawHome.site) == null ? void 0 : _c.tagline) || "",
@@ -3495,40 +3682,47 @@ Please fix the JSON structure and return ONLY the JSON object.`;
           const otherPages = selectedTemplate.pages.filter(
             (p) => p.id !== "home"
           );
+          console.log(
+            `[Multi-Page] Selected Template: ${templateId}, Other Pages: ${otherPages.length}`
+          );
           if (otherPages.length > 0) {
-            await Promise.all(
-              otherPages.map(async (p) => {
-                const pBrief = `${cleanBrief || briefRaw}. Focus on ${p.id} page. ${p.promptFocus}`;
-                try {
-                  const pageConfig = await generatePageWithRepair(
-                    p.id,
-                    pBrief,
-                    siteContext
-                  );
-                  if (!pageConfig.site) pageConfig.site = {};
-                  pageConfig.site.siteName = siteContext.siteName;
-                  pageConfig.site.tagline = siteContext.tagline;
-                  if (siteContext.primaryColor)
-                    pageConfig.site.primaryColor = siteContext.primaryColor;
-                  pageConfig.site.themeMode = siteContext.themeMode;
-                  pages[p.id] = pageConfig;
-                } catch (e) {
-                  console.warn(
-                    `Failed to generate ${p.id}, falling back to mock.`
-                  );
-                  pages[p.id] = buildMockPageConfig({
-                    template,
-                    brief: pBrief,
-                    stack,
-                    seed: seed + hashString(p.id),
-                    structure: p.structure,
-                    themeMode: siteContext.themeMode
-                  });
-                  pages[p.id].site.siteName = siteContext.siteName;
-                  pages[p.id].site.primaryColor = siteContext.primaryColor;
-                }
-              })
-            );
+            for (const p of otherPages) {
+              console.log(`[Multi-Page] Generating ${p.id}...`);
+              const pBrief = `${cleanBrief || briefRaw}. Focus on ${p.id} page. ${p.promptFocus}`;
+              try {
+                const pageConfig = await generatePageWithRepair(
+                  p.id,
+                  pBrief,
+                  siteContext,
+                  p.structure
+                  // Guide
+                );
+                if (!pageConfig.site) pageConfig.site = {};
+                pageConfig.site.siteName = siteContext.siteName;
+                pageConfig.site.tagline = siteContext.tagline;
+                if (siteContext.primaryColor)
+                  pageConfig.site.primaryColor = siteContext.primaryColor;
+                pageConfig.site.themeMode = siteContext.themeMode;
+                pages[p.id] = pageConfig;
+                console.log(`[Multi-Page] Success: ${p.id}`);
+              } catch (e) {
+                console.warn(
+                  `[Multi-Page] Failed ${p.id}, falling back to mock.`,
+                  e
+                );
+                const mockPage = buildMockPageConfig({
+                  template,
+                  brief: pBrief,
+                  stack,
+                  seed: seed + hashString(p.id),
+                  structure: p.structure,
+                  themeMode: siteContext.themeMode
+                });
+                mockPage.site.siteName = siteContext.siteName;
+                mockPage.site.primaryColor = siteContext.primaryColor;
+                pages[p.id] = mockPage;
+              }
+            }
           }
           note = "Live OK (Gemini Multi-page)";
           rawProject = {
@@ -3744,5 +3938,52 @@ const index = eventHandler(() => {
 const index$1 = /*#__PURE__*/Object.freeze({
   __proto__: null,
   default: index
+});
+
+function systemPrompt(spec, stack) {
+  return [
+    "Role: AI Web Architect.",
+    "Task: Generate a JSON object matching the PageConfig schema.",
+    "Constraints:",
+    "- Output strictly JSON. No markdown fences.",
+    "- Use section types: hero, features, testimonials, faq, blogList, cta, pricing, stats, team.",
+    `- Stack: ${stack}. Adjust content/structure conventions accordingly.`,
+    `- Template: ${spec.label}.`,
+    "",
+    "Schema Definition (Simplified):",
+    "{",
+    '  "meta": { "title": string, "description": string, "stack": string, "generatedAt": string, "mode": "mock" | "legacy" | "auto" },',
+    '  "site": { "name": string, "logo": string, "themeMode": "light" | "dark", "primaryColor": string, "fontFamily": string },',
+    '  "pages": {',
+    '    "home": {',
+    '      "id": "home",',
+    '      "slug": "/",',
+    '      "sections": [',
+    '        { "id": string, "type": "hero" | ... , "content": { ... } }',
+    "      ]",
+    "    }",
+    "  }",
+    "}",
+    "",
+    "Allowed Section Content:",
+    "- Hero: tag, title, description, actions: [{ label, link, variant: 'primary'|'secondary' }], image? (use placehold.co)",
+    "- Features: title, subtitle, items: [{ title, description, icon (lucide-react name) }]",
+    "- Testimonials: title, items: [{ name, role, content, avatar }]",
+    "- Pricing: title, description, plans: [{ name, price, features: [], cta: {}, popular: boolean }]",
+    "- Team: title, description, members: [{ name, role, avatar, bio }]",
+    "- Stats: items: [{ label, value, description? }]",
+    "- BlogList: title, source: { endpoint? } (If WP URL provided, use it. Else mock.)",
+    "",
+    "Instructions:",
+    "1. Respect User Brief implicitly.",
+    "2. Generate realistic, creative copy. No 'Lorem Ipsum'.",
+    "3. Ensure strictly valid JSON.",
+    "4. Do NOT output markdown formatting (```json)."
+  ].join("\n");
+}
+
+const prompts = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  systemPrompt: systemPrompt
 });
 //# sourceMappingURL=index.mjs.map
