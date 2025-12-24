@@ -17,6 +17,14 @@ export default defineNitroConfig({
       baseName: "web-data",
       dir: resolve(process.cwd(), "../web/data"),
     },
+    {
+      baseName: "shared-types",
+      dir: resolve(process.cwd(), "../../packages/shared/src/types"),
+    },
+    {
+      baseName: "scaffold-assets",
+      dir: resolve(process.cwd(), "server/domain/scaffolder/assets"),
+    },
   ],
   virtual: {
     // Shim for backend util if needed, but we read it via fs in local dev

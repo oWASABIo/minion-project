@@ -5,8 +5,6 @@ import { resolve, dirname, join } from 'node:path';
 import nodeCrypto from 'node:crypto';
 import { parentPort, threadId } from 'node:worker_threads';
 import archiver from 'file:///Users/jeddirok.k/Documents/minions/node_modules/archiver/index.js';
-import { promises } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import destr from 'file:///Users/jeddirok.k/Documents/minions/node_modules/destr/dist/index.mjs';
 import { createHooks } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/hookable/dist/index.mjs';
 import { createFetch, Headers as Headers$1 } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/ofetch/dist/node.mjs';
@@ -23,12 +21,14 @@ import consola from 'file:///Users/jeddirok.k/Documents/minions/node_modules/con
 import { ErrorParser } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/youch-core/build/index.js';
 import { Youch } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/youch/build/index.js';
 import { SourceMapConsumer } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/source-map/source-map.js';
+import { promises } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname as dirname$1, resolve as resolve$1 } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/pathe/dist/index.mjs';
 import { klona } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/klona/dist/index.mjs';
 import { snakeCase } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/scule/dist/index.mjs';
 import { GoogleGenerativeAI } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/@google/generative-ai/dist/index.mjs';
 
-const serverAssets = [{"baseName":"web-components","dir":"/Users/jeddirok.k/Documents/minions/apps/web/components"},{"baseName":"web-data","dir":"/Users/jeddirok.k/Documents/minions/apps/web/data"},{"baseName":"server","dir":"/Users/jeddirok.k/Documents/minions/apps/api/server/assets"}];
+const serverAssets = [{"baseName":"web-components","dir":"/Users/jeddirok.k/Documents/minions/apps/web/components"},{"baseName":"web-data","dir":"/Users/jeddirok.k/Documents/minions/apps/web/data"},{"baseName":"shared-types","dir":"/Users/jeddirok.k/Documents/minions/packages/shared/src/types"},{"baseName":"scaffold-assets","dir":"/Users/jeddirok.k/Documents/minions/apps/api/server/domain/scaffolder/assets"},{"baseName":"server","dir":"/Users/jeddirok.k/Documents/minions/apps/api/server/assets"}];
 
 const assets$1 = createStorage();
 
@@ -922,16 +922,16 @@ const plugins = [
 const assets = {
   "/index.mjs": {
     "type": "text/javascript; charset=utf-8",
-    "etag": "\"1ef7f-XVJoKfB8kIUAqq5v+SLqwpjp6hU\"",
-    "mtime": "2025-12-23T11:03:33.610Z",
-    "size": 126847,
+    "etag": "\"1ef8b-9usQPn8SjeGGON3yWFEJt2UbJEU\"",
+    "mtime": "2025-12-24T03:43:05.221Z",
+    "size": 126859,
     "path": "index.mjs"
   },
   "/index.mjs.map": {
     "type": "application/json",
-    "etag": "\"7c5a9-/AoRT3o+YxqQGG+fmb/EPDvRThs\"",
-    "mtime": "2025-12-23T11:03:33.611Z",
-    "size": 509353,
+    "etag": "\"7cb0e-GjAlzUiF+lAbOLPlV6Sxu1dxOWc\"",
+    "mtime": "2025-12-24T03:43:05.221Z",
+    "size": 510734,
     "path": "index.mjs.map"
   }
 };
@@ -1898,7 +1898,7 @@ function generatePackageJson(config) {
 
 async function generateProjectFiles(config, stack = "nuxt") {
   const files = [];
-  const rootDir = process.cwd();
+  process.cwd();
   const isProject = "pages" in config;
   const projectConfig = isProject ? config : null;
   const pageConfig = isProject ? null : config;
@@ -1914,24 +1914,12 @@ async function generateProjectFiles(config, stack = "nuxt") {
     });
   }
   try {
-    const possiblePaths = [
-      resolve(rootDir, "types/landing.ts"),
-      // Standalone / Legacy
-      resolve(rootDir, "../../packages/shared/src/types/landing.ts"),
-      // Monorepo Dev (from apps/api)
-      resolve(rootDir, "../packages/shared/src/types/landing.ts")
-      // Variant
-    ];
-    let typesContent = "";
-    for (const p of possiblePaths) {
-      try {
-        typesContent = await promises.readFile(p, "utf-8");
-        if (typesContent) break;
-      } catch (e) {
-      }
-    }
+    const storage = useStorage("assets:shared-types");
+    const typesContent = await storage.getItem("landing.ts");
     if (!typesContent) {
-      throw new Error("Could not find landing.ts types");
+      throw new Error(
+        "Could not find landing.ts types in storage 'assets:shared-types'"
+      );
     }
     files.push({ name: "types/landing.ts", content: typesContent });
   } catch (e) {
@@ -2074,13 +2062,10 @@ async function readComponents(rootDir) {
   return components;
 }
 async function readBackendUtil(rootDir) {
-  const currentDir = dirname(fileURLToPath(globalThis._importMeta_.url));
-  const backendPath = resolve(currentDir, "assets/backend.ts");
-  let content = "";
-  try {
-    content = await promises.readFile(backendPath, "utf-8");
-  } catch (e) {
-    content = "export const backend = {}; // Placeholder";
+  const storage = useStorage("assets:scaffold-assets");
+  let content = await storage.getItem("backend.ts");
+  if (!content) {
+    content = "export const backend = {}; // Placeholder (Asset not found)";
   }
   return {
     name: "server/utils/backend.ts",

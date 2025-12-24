@@ -66,23 +66,13 @@ export async function generateProjectFiles(
 
   // 2. Types
   try {
-    // Try multiple paths for robustness (Monorepo vs Standalone)
-    const possiblePaths = [
-      resolve(rootDir, "types/landing.ts"), // Standalone / Legacy
-      resolve(rootDir, "../../packages/shared/src/types/landing.ts"), // Monorepo Dev (from apps/api)
-      resolve(rootDir, "../packages/shared/src/types/landing.ts"), // Variant
-    ];
-
-    let typesContent = "";
-    for (const p of possiblePaths) {
-      try {
-        typesContent = await fs.readFile(p, "utf-8");
-        if (typesContent) break;
-      } catch (e) {}
-    }
+    const storage = useStorage("assets:shared-types");
+    const typesContent = (await storage.getItem("landing.ts")) as string;
 
     if (!typesContent) {
-      throw new Error("Could not find landing.ts types");
+      throw new Error(
+        "Could not find landing.ts types in storage 'assets:shared-types'"
+      );
     }
 
     files.push({ name: "types/landing.ts", content: typesContent });
@@ -297,19 +287,11 @@ async function readComponents(rootDir: string): Promise<FileEntry[]> {
 }
 
 async function readBackendUtil(rootDir: string): Promise<FileEntry> {
-  // Logic to read backend.ts or similar util
-  // optimizing for import.meta.url
+  const storage = useStorage("assets:scaffold-assets");
+  let content = (await storage.getItem("backend.ts")) as string;
 
-  const currentDir = dirname(fileURLToPath(import.meta.url));
-  const backendPath = resolve(currentDir, "assets/backend.ts");
-
-  let content = "";
-  try {
-    content = await fs.readFile(backendPath, "utf-8");
-  } catch (e) {
-    // If running in build, assets might be elsewhere. Consuming apps should provide this.
-    // For now, providing a simple stub to prevent failure.
-    content = "export const backend = {}; // Placeholder";
+  if (!content) {
+    content = "export const backend = {}; // Placeholder (Asset not found)";
   }
 
   return {
