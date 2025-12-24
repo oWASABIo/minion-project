@@ -40,10 +40,8 @@ export default defineNuxtConfig({
     layoutTransition: { name: "layout", mode: "out-in" },
   },
   routeRules: {
-    "/api/ai-status": { proxy: "http://localhost:3001/api/ai-status" },
-    "/api/generate-page": { proxy: "http://localhost:3001/api/generate-page" },
-    "/api/download-kit": { proxy: "http://localhost:3001/api/download-kit" },
-    "/api/rewrite": { proxy: "http://localhost:3001/api/rewrite" },
-    "/api/wp-posts": { proxy: "http://localhost:3001/api/wp-posts" },
+    "/api/**": {
+      proxy: `${process.env.API_BASE_URL || "http://localhost:3001"}/api/**`,
+    },
   },
 });
