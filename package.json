@@ -11,5 +11,8 @@
     "build": "npm run build --workspaces",
     "install:all": "npm install",
     "test": "npm run test --workspaces"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
   }
 }
