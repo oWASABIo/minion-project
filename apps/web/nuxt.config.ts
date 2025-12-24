@@ -7,6 +7,10 @@ export default defineNuxtConfig({
       new URL("../../packages/shared/src/types/landing.ts", import.meta.url)
     ),
   },
+  // Ensure we build for Cloudflare Pages specifically
+  nitro: {
+    preset: "cloudflare-pages",
+  },
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
   modules: ["@nuxtjs/tailwindcss", "@nuxtjs/supabase", "@pinia/nuxt"],

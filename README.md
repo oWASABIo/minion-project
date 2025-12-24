@@ -61,7 +61,9 @@ This project is a Monorepo:
    - **Web UI**: http://localhost:3000
    - **API**: http://localhost:3001
 
-> For detailed instructions on running services separately, testing, and architecture decisions, see the [Development Guide](docs/DEVELOPMENT.md).
+> For detailed deployment instructions (Cloudflare Pages & Workers), see the [Deployment Guide](docs/DEPLOYMENT.md).
+>
+> For architecture decisions and development workflow, see the [Development Guide](docs/DEVELOPMENT.md).
 >
 > 🇹🇭 **สำหรับภาษาไทย:** ดูคู่มือการพัฒนาและการรันระบบได้ที่ [คู่มือภาษาไทย (Thai Guide)](docs/DEVELOPMENT_TH.md)
 
