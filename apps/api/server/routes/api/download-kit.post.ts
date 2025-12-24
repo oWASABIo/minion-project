@@ -1,38 +1,38 @@
-
-import { defineEventHandler, readBody, sendStream, setHeader } from "h3";
-import archiver from "archiver";
-import { Readable } from "stream";
-import { promises as fs } from "fs";
-import { resolve } from "path";
+import { defineEventHandler, readBody, setHeader } from "h3";
+import JSZip from "jszip";
 import type { PageConfig, ProjectConfig, Stack } from "@minions/shared";
 import { generateProjectFiles } from "~/domain/scaffolder/index";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { config, stack } = body as { config: PageConfig | ProjectConfig; stack: Stack };
-  
-  // Create archive
-  const archive = archiver("zip", {
-    zlib: { level: 9 },
-  });
+  const { config, stack } = body as {
+    config: PageConfig | ProjectConfig;
+    stack: Stack;
+  };
 
-  // Set headers for download
-  setHeader(event, "Content-Type", "application/zip");
-  setHeader(
-    event,
-    "Content-Disposition",
-    `attachment; filename="starter-kit-${stack}-${config.meta?.seed || "seed"}.zip"`
-  );
+  // Create archive
+  const zip = new JSZip();
 
   // Generate Files using Shared Logic
   const files = await generateProjectFiles(config, stack);
 
   // Append to Archive
   for (const file of files) {
-    archive.append(file.content, { name: file.name });
+    zip.file(file.name, file.content);
   }
 
-  archive.finalize();
+  // Generate ZIP content
+  const content = await zip.generateAsync({ type: "nodebuffer" });
 
-  return sendStream(event, archive);
+  // Set headers for download
+  setHeader(event, "Content-Type", "application/zip");
+  setHeader(
+    event,
+    "Content-Disposition",
+    `attachment; filename="starter-kit-${stack}-${
+      config.meta?.seed || "seed"
+    }.zip"`
+  );
+
+  return content;
 });

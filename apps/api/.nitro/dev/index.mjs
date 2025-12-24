@@ -4,8 +4,12 @@ import { Server } from 'node:http';
 import { resolve, dirname, join } from 'node:path';
 import nodeCrypto from 'node:crypto';
 import { parentPort, threadId } from 'node:worker_threads';
-import archiver from 'file:///Users/jeddirok.k/Documents/minions/node_modules/archiver/index.js';
+import JSZip from 'jszip';
+import { klona } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/klona/dist/index.mjs';
+import defu, { defuFn } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/defu/dist/defu.mjs';
 import destr from 'file:///Users/jeddirok.k/Documents/minions/node_modules/destr/dist/index.mjs';
+import { snakeCase } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/scule/dist/index.mjs';
+import { GoogleGenerativeAI } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/@google/generative-ai/dist/index.mjs';
 import { createHooks } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/hookable/dist/index.mjs';
 import { createFetch, Headers as Headers$1 } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/ofetch/dist/node.mjs';
 import { fetchNodeRequestHandler, callNodeRequestHandler } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/node-mock-http/dist/index.mjs';
@@ -14,7 +18,6 @@ import { createStorage, prefixStorage } from 'file:///Users/jeddirok.k/Documents
 import unstorage_47drivers_47fs from 'file:///Users/jeddirok.k/Documents/minions/node_modules/unstorage/drivers/fs.mjs';
 import { digest } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/ohash/dist/index.mjs';
 import { getContext } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/unctx/dist/index.mjs';
-import defu, { defuFn } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/defu/dist/defu.mjs';
 import { toRouteMatcher, createRouter } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/radix3/dist/index.mjs';
 import { readFile } from 'node:fs/promises';
 import consola from 'file:///Users/jeddirok.k/Documents/minions/node_modules/consola/dist/index.mjs';
@@ -24,9 +27,6 @@ import { SourceMapConsumer } from 'file:///Users/jeddirok.k/Documents/minions/no
 import { promises } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname as dirname$1, resolve as resolve$1 } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/pathe/dist/index.mjs';
-import { klona } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/klona/dist/index.mjs';
-import { snakeCase } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/scule/dist/index.mjs';
-import { GoogleGenerativeAI } from 'file:///Users/jeddirok.k/Documents/minions/node_modules/@google/generative-ai/dist/index.mjs';
 
 const serverAssets = [{"baseName":"web-components","dir":"/Users/jeddirok.k/Documents/minions/apps/web/components"},{"baseName":"web-data","dir":"/Users/jeddirok.k/Documents/minions/apps/web/data"},{"baseName":"shared-types","dir":"/Users/jeddirok.k/Documents/minions/packages/shared/src/types"},{"baseName":"scaffold-assets","dir":"/Users/jeddirok.k/Documents/minions/apps/api/server/domain/scaffolder/assets"},{"baseName":"server","dir":"/Users/jeddirok.k/Documents/minions/apps/api/server/assets"}];
 
@@ -922,16 +922,16 @@ const plugins = [
 const assets = {
   "/index.mjs": {
     "type": "text/javascript; charset=utf-8",
-    "etag": "\"1ef29-OlO06fxL2vc2/bJiGxOs+HHku4Y\"",
-    "mtime": "2025-12-24T03:58:00.358Z",
-    "size": 126761,
+    "etag": "\"1eec6-OgMXoRtI9SeTo8ED+Z6Gr/gGUhM\"",
+    "mtime": "2025-12-24T04:43:16.429Z",
+    "size": 126662,
     "path": "index.mjs"
   },
   "/index.mjs.map": {
     "type": "application/json",
-    "etag": "\"7c97f-6Af8cQnG84aucVnolsRaOdkeEbk\"",
-    "mtime": "2025-12-24T03:58:00.359Z",
-    "size": 510335,
+    "etag": "\"7cae6-Q3blmIui8XUCp7RvZP5H2/RNzYA\"",
+    "mtime": "2025-12-24T04:43:16.429Z",
+    "size": 510694,
     "path": "index.mjs.map"
   }
 };
@@ -2077,21 +2077,19 @@ const downloadKit_post = defineEventHandler(async (event) => {
   var _a;
   const body = await readBody(event);
   const { config, stack } = body;
-  const archive = archiver("zip", {
-    zlib: { level: 9 }
-  });
+  const zip = new JSZip();
+  const files = await generateProjectFiles(config, stack);
+  for (const file of files) {
+    zip.file(file.name, file.content);
+  }
+  const content = await zip.generateAsync({ type: "nodebuffer" });
   setHeader(event, "Content-Type", "application/zip");
   setHeader(
     event,
     "Content-Disposition",
     `attachment; filename="starter-kit-${stack}-${((_a = config.meta) == null ? void 0 : _a.seed) || "seed"}.zip"`
   );
-  const files = await generateProjectFiles(config, stack);
-  for (const file of files) {
-    archive.append(file.content, { name: file.name });
-  }
-  archive.finalize();
-  return sendStream(event, archive);
+  return content;
 });
 
 const downloadKit_post$1 = /*#__PURE__*/Object.freeze({

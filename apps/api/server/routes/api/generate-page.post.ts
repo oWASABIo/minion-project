@@ -1,4 +1,4 @@
-import { createError, readBody } from "h3";
+import { createError, defineEventHandler, readBody, sendStream } from "h3";
 import type { PageConfig, Stack, ProjectConfig } from "@minions/shared";
 import {
   buildMockProject,
@@ -15,6 +15,7 @@ import {
 } from "~/domain/generator/gemini";
 import { gettemplateSpec } from "../../domain/generator/template-spec";
 import { validatePageConfig } from "~/domain/generator/validate";
+import { useRuntimeConfig } from "nitropack/runtime";
 
 type Body = {
   template?: string;
