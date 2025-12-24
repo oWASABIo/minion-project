@@ -4,12 +4,13 @@
   "scripts": {
     "dev": "NITRO_HOST=127.0.0.1 NITRO_PORT=3001 nitro dev",
     "build": "nitro build",
+    "build:cf": "NITRO_PRESET=cloudflare-module nitro build",
     "preview": "node .output/server/index.mjs",
     "test": "vitest"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "archiver": "^7.0.1",
+    "jszip": "^3.10.1",
     "h3": "^1.11.1"
   },
   "devDependencies": {

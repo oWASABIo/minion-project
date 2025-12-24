@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { useRuntimeConfig } from "nitropack/runtime";
 
 let keyRing: string[] = [];
 let currentIndex = 0;

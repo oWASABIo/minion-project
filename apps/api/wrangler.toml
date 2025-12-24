@@ -8,13 +8,18 @@ main = ".output/server/index.mjs"
 # These will be overridden by secrets in dashboard, but good to have placeholders
 
 # --- Production Environment (Branch: main) ---
+# --- Production Environment (Branch: main) ---
 # Usage: wrangler deploy --env production
 [env.production]
 name = "minions-api-production"
 route = { pattern = "api.minions.com", custom_domain = true }
+[env.production.vars]
+# Add production vars here
 
 # --- Dev Environment (Branch: dev) ---
 # Usage: wrangler deploy --env dev
 [env.dev]
 name = "minions-api-dev"
 workers_dev = true # Deploys to *.workers.dev
+[env.dev.vars]
+# Add dev vars here
