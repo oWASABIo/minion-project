@@ -11,8 +11,7 @@ main = ".output/server/index.mjs"
 # --- Production Environment (Branch: main) ---
 # Usage: wrangler deploy --env production
 [env.production]
-[env.production]
-name = "minions-api-production"
+name = "minion-api"
 workers_dev = true # Use workers.dev subdomain for now until custom domain is ready
 # route = { pattern = "api.minions.com", custom_domain = true }
 [env.production.vars]
@@ -21,7 +20,7 @@ workers_dev = true # Use workers.dev subdomain for now until custom domain is re
 # --- Dev Environment (Branch: dev) ---
 # Usage: wrangler deploy --env dev
 [env.dev]
-name = "minions-api-dev"
+name = "minion-api-dev"
 workers_dev = true # Deploys to *.workers.dev
 [env.dev.vars]
 # Add dev vars here
