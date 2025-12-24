@@ -1,1 +1,52 @@
-node_modules
+# System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Node
+node_modules/
+.npm
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Nuxt & Build Output
+.nuxt/
+.output/
+dist/
+.cache/
+.data/
+
+# Nitro
+.nitro/
+
+# IDE & Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs
+*.njsproj
+*.sln
+*.swp
+
+# Testing coverage
+coverage/
+.nyc_output/
+
+# Supabase
+supabase/functions/*/deno.lock
+supabase/.temp/
+
+# Cloudflare (Wrangler)
+.wrangler/
+
+# Misc
+.vercel/
+.netlify/
+*.log
