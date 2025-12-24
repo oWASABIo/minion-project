@@ -1,4 +1,4 @@
-import { promises as fs } from "fs";
+// import { promises as fs } from "fs"; // REMOVED: Incompatible with Cloudflare Workers
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url"; // Still needed for readBackendUtil
 // readBackendUtil uses fileURLToPath(import.meta.url). So we KEEP it.
