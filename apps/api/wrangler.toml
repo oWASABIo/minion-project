@@ -1,0 +1,19 @@
+name = "minions-api"
+compatibility_date = "2024-11-01"
+main = ".output/server/index.mjs"
+
+# Global settings (shared)
+[vars]
+# These will be overridden by secrets in dashboard, but good to have placeholders
+
+# --- Production Environment (Branch: main) ---
+# Usage: wrangler deploy --env production
+[env.production]
+name = "minions-api-production"
+route = { pattern = "api.minions.com", custom_domain = true }
+
+# --- Dev Environment (Branch: dev) ---
+# Usage: wrangler deploy --env dev
+[env.dev]
+name = "minions-api-dev"
+workers_dev = true # Deploys to *.workers.dev
