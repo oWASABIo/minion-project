@@ -5,6 +5,7 @@ const email = ref("");
 const password = ref("");
 const loading = ref(false);
 const message = ref("");
+const messageType = ref<"success" | "error">("error"); // Track message type for styling
 const isSignUp = ref(false);
 const { styles } = useTheme();
 
@@ -15,9 +16,19 @@ watchEffect(() => {
   }
 });
 
+const toggleAuthMode = () => {
+  isSignUp.value = !isSignUp.value;
+  // Clear all state
+  email.value = "";
+  password.value = "";
+  message.value = "";
+  messageType.value = "error";
+};
+
 const handleLogin = async () => {
   loading.value = true;
   message.value = "";
+  messageType.value = "error";
 
   try {
     const { error } = isSignUp.value
@@ -33,11 +44,13 @@ const handleLogin = async () => {
     if (error) throw error;
 
     if (isSignUp.value) {
+      messageType.value = "success";
       message.value = "Check your email for the confirmation link!";
     } else {
       navigateTo("/builder");
     }
   } catch (error: any) {
+    messageType.value = "error";
     message.value = error.message;
   } finally {
     loading.value = false;
@@ -101,7 +114,7 @@ const handleLogin = async () => {
           v-if="message"
           class="p-3 rounded-lg text-sm text-center"
           :class="
-            isSignUp
+            messageType === 'success'
               ? 'bg-emerald-500/10 text-emerald-400'
               : 'bg-red-500/10 text-red-400'
           "
@@ -139,7 +152,8 @@ const handleLogin = async () => {
       <p class="mt-8 text-center text-xs text-slate-500">
         {{ isSignUp ? "Already have an account?" : "Don't have an account?" }}
         <button
-          @click="isSignUp = !isSignUp"
+          type="button"
+          @click="toggleAuthMode"
           class="text-indigo-400 hover:text-indigo-300 font-medium ml-1"
         >
           {{ isSignUp ? "Sign In" : "Sign Up" }}
