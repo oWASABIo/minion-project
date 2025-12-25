@@ -149,6 +149,7 @@ const pagesList = computed(() => {
 });
 
 const user = useSupabaseUser();
+const supabase = useSupabaseClient();
 
 // Force Mock Mode for Guests
 watch(
@@ -196,11 +197,22 @@ async function saveProject() {
 
   isSaving.value = true;
   try {
+    const session = user.value ? await supabase.auth.getSession() : null;
+    const token = session?.data.session?.access_token;
+
+    if (!token) {
+      toastError("Auth Error", "Could not retrieve access token.");
+      return;
+    }
+
     const { success, project } = await $fetch<{
       success: boolean;
       project: any;
     }>("/api/projects/save", {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
       body: {
         name: generatedConfig.value.site?.siteName || "Untitled Project",
         config: generatedConfig.value,
@@ -804,7 +816,7 @@ async function handleConfirmPublish() {
 
           <!-- Iframe Container -->
           <div
-            class="h-[calc(100vh-12rem)] flex justify-center perspective-1000"
+            class="min-h-[600px] h-[calc(100vh-12rem)] flex justify-center perspective-1000"
           >
             <PreviewFrame
               ref="previewIframe"
