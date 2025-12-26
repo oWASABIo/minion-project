@@ -1,4 +1,4 @@
-import type { Pagetemplate, Stack, Section } from "@minions/shared";
+import type { Pagetemplate, Stack, Section } from "../types/landing";
 
 export type StackSpec = {
   label: string;

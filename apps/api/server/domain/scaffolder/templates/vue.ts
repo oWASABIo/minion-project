@@ -63,13 +63,11 @@ body {
 }
 
 export function generatePageVue(pageId: string) {
-  // If home, we might use project-config.pages['home']
-  // But here we rely on the component (PageRenderer) mapping
-  // We'll import the BIG config and pick the page
   return `<script setup lang="ts">
 import projectConfig from "~/data/project-config.json";
+import PageRenderer from "~/components/sections/PageRenderer.vue";
 
-const pageConfig = projectConfig.pages["${pageId}"];
+const pageConfig = (projectConfig.pages as any)["${pageId}"];
 </script>
 
 <template>
@@ -248,8 +246,12 @@ const pageConfig = projectConfig.pages["${pageId}"];
 }
 
 export function generatePackageJson(config: PageConfig) {
+  const name =
+    config.site?.siteName?.toLowerCase().replace(/[^a-z0-9]/g, "-") ||
+    "minions-project";
+
   return {
-    name: "minions-generated-project",
+    name,
     private: true,
     scripts: {
       build: "nuxt build",
@@ -261,12 +263,12 @@ export function generatePackageJson(config: PageConfig) {
     dependencies: {
       "@heroicons/vue": "^2.1.5",
       clsx: "^2.1.1",
-      nuxt: "^3.13.0",
+      nuxt: "3.12.4",
       "tailwind-merge": "^2.5.2",
       vue: "latest",
     },
     devDependencies: {
-      "@nuxtjs/tailwindcss": "^6.12.1",
+      "@nuxtjs/tailwindcss": "6.12.0",
       autoprefixer: "^10.4.20",
       postcss: "^8.4.47",
       tailwindcss: "^3.4.10",

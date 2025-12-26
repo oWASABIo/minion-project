@@ -9,7 +9,7 @@ export default defineNuxtConfig({
   },
   // Ensure we build for Cloudflare Pages specifically
   nitro: {
-    preset: "cloudflare-pages",
+    preset: process.env.NITRO_PRESET || "cloudflare-pages",
   },
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },

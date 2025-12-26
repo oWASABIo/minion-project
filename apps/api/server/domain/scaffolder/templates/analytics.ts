@@ -1,7 +1,5 @@
 export function generateAnalyticsApi() {
-  return `import { serverSupabaseClient } from "#supabase/server";
-
-export default defineEventHandler(async (event) => {
+  return `export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   const { projectId, eventType, metadata } = body;
 
@@ -12,21 +10,10 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // --- ADAPTER: Supabase (Default) ---
-  // To use MySQL/Postgres/MongoDB, replace this block with your DB call.
-  // See ANALYTICS.md for details.
-  const client = await serverSupabaseClient(event);
-
-  const { error } = await client.from("analytics_events").insert({
-    project_id: projectId,
-    event_type: eventType,
-    metadata: metadata || {},
-  });
-
-  if (error) {
-    console.error("Analytics Error:", error);
-    return { success: false };
-  }
+  // --- MOCK ADAPTER (Default for Kit) ---
+  // This kit is configured to be dependency-free. 
+  // To enable Supabase or other DBs, see ANALYTICS.md
+  console.log(\`[Analytics] Event tracked: \${eventType}\`, { projectId, metadata });
   // --- END ADAPTER ---
 
   return { success: true };

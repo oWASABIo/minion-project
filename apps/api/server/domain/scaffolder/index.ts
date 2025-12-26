@@ -140,33 +140,6 @@ export async function generateProjectFiles(
       });
     }
 
-    // Component Files
-    const components = await readComponents(rootDir);
-    files.push(...components);
-
-    // Backend Util
-    const backendUtil = await readBackendUtil(rootDir);
-    files.push(backendUtil);
-
-    // --- Analytics Kit Upgrade ---
-    // 1. API Endpoint (Server Logic)
-    files.push({
-      name: "server/api/analytics/track.post.ts",
-      content: generateAnalyticsApi(),
-    });
-
-    // 2. Composable (Frontend Logic)
-    files.push({
-      name: "composables/useAnalytics.ts",
-      content: generateAnalyticsComposable(),
-    });
-
-    // 3. Database Schema (Migration)
-    files.push({
-      name: "database/analytics_schema.sql",
-      content: generateAnalyticsMigration(),
-    });
-
     // 4. Analytics Manual
     files.push({
       name: "ANALYTICS.md",
@@ -214,16 +187,91 @@ export async function generateProjectFiles(
       // Component-only / Single Page
       // (Just use App.vue logic above)
     }
+  }
 
-    const components = await readComponents(rootDir);
-    // Vite expects components in src/components
-    // Our readComponents returns "components/..."
-    // We need to map them to "src/components/..."
-    const viteComponents = components.map((c) => ({
-      name: `src/${c.name}`,
-      content: c.content,
-    }));
-    files.push(...viteComponents);
+  // Common: Components and Utils
+  const alias = stack === "vue-vite" ? "@" : "~";
+  const components = (await readComponents(rootDir)).map((file) => {
+    if (typeof file.content === "string") {
+      // Sanitize components for a dependency-free kit
+      let clean = file.content
+        .replace(
+          /const user = useSupabaseUser\(\);/g,
+          "const user = ref(null); // Mocked for Kit"
+        )
+        .replace(
+          /const supabase = useSupabaseClient\(\);/g,
+          "const supabase = { auth: { signOut: () => {} } }; // Mocked for Kit"
+        )
+        .replace(
+          /const { .* } = useCart\(\);/g,
+          "const { items, isDrawerOpen, cartCount, toggleDrawer, addToCart, updateQuantity, cartTotal } = { items: ref([]), isDrawerOpen: ref(false), cartCount: ref(0), toggleDrawer: () => {}, addToCart: () => {}, updateQuantity: () => {}, cartTotal: ref(0) }; // Mocked for Kit"
+        )
+        .replace(
+          /useCart\(\);/g,
+          "const { items, isDrawerOpen, cartCount, toggleDrawer, addToCart, updateQuantity, cartTotal } = { items: ref([]), isDrawerOpen: ref(false), cartCount: ref(0), toggleDrawer: () => {}, addToCart: () => {}, updateQuantity: () => {}, cartTotal: ref(0) }; // Mocked for Kit"
+        )
+        .replace(
+          /\/images\/hero-minions-v2\.png/g,
+          "https://picsum.photos/seed/minions/800/600"
+        )
+        .replace(
+          /\/images\/product-.*\.png/g,
+          "https://picsum.photos/seed/product/800/600"
+        )
+        .replace(/\/images\/team-.*\.png/g, (match) => {
+          const id = match.match(/\d/)?.[0] || "1";
+          return `https://i.pravatar.cc/300?img=${id}`;
+        })
+        .replace(/import type { .* } from "@minions\/shared";/g, (match) => {
+          return match.replace("@minions/shared", `${alias}/types/landing`);
+        })
+        .replace(/@minions\/shared/g, `${alias}/types/landing`)
+        .replace(/~\//g, `${alias}/`); // Convert Nuxt style to Stack style if needed
+
+      return {
+        ...file,
+        name: stack === "vue-vite" ? `src/${file.name}` : file.name,
+        content: clean,
+      };
+    }
+    return {
+      ...file,
+      name: stack === "vue-vite" ? `src/${file.name}` : file.name,
+    };
+  });
+  files.push(...components);
+
+  const backendUtil = await readBackendUtil(rootDir);
+  if (typeof backendUtil.content === "string") {
+    backendUtil.content = backendUtil.content
+      .replace(/@minions\/shared/g, `${alias}/types/landing`)
+      .replace(/~\//g, `${alias}/`);
+  }
+  files.push({
+    ...backendUtil,
+    name: stack === "vue-vite" ? `src/${backendUtil.name}` : backendUtil.name,
+  });
+
+  // Analytics (Standard for all stacks if desired, let's keep it for Nuxt specifically for now or all?)
+  // Let's keep it for Nuxt/WP for now as the templates use H3
+  if (stack === "nuxt" || stack === "wordpress-theme") {
+    files.push({
+      name: "server/api/analytics/track.post.ts",
+      content: generateAnalyticsApi(),
+    });
+    files.push({
+      name: "composables/useAnalytics.ts",
+      content: generateAnalyticsComposable(),
+    });
+    files.push({
+      name: "database/analytics_schema.sql",
+      content: generateAnalyticsMigration(),
+    });
+    files.push({
+      name: "ANALYTICS.md",
+      content: generateAnalyticsManual(),
+    });
   }
 
   // 4. README & Utils
@@ -279,7 +327,7 @@ async function readComponents(rootDir: string): Promise<FileEntry[]> {
     const relativePath = key.replace(/:/g, "/");
     components.push({
       name: `components/${relativePath}`,
-      content: content,
+      content: content, // No global replace here, we do it per-stack in generateProjectFiles
     });
   }
 
@@ -295,7 +343,7 @@ async function readBackendUtil(rootDir: string): Promise<FileEntry> {
   }
 
   return {
-    name: "server/utils/backend.ts",
+    name: "utils/backend.ts",
     content,
   };
 }

@@ -1,4 +1,4 @@
-import type { PageConfig, Section } from "@minions/shared";
+import type { PageConfig, Section } from "../types/landing";
 import { enforceStackConstraints } from "./stack-spec";
 
 type Opts = {
