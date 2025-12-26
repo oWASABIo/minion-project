@@ -11,21 +11,21 @@
     "generate:landing": "node scripts/generate-landing.mjs"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
-    "@google/generative-ai": "^0.24.1",
-    "@nuxtjs/supabase": "^2.0.3",
-    "@nuxtjs/tailwindcss": "^6.14.0",
-    "@pinia/nuxt": "^0.11.3",
-    "canvas-confetti": "^1.9.4",
-    "nuxt": "^4.2.1",
-    "pinia": "^3.0.4",
-    "vue": "^3.5.25",
+    "@minions/shared": "*",
+    "@nuxtjs/supabase": "^1.1.4",
+    "@nuxtjs/tailwindcss": "^6.11.4",
+    "@pinia/nuxt": "^0.5.1",
+    "canvas-confetti": "^1.9.2",
+    "nuxt": "3.15.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
     "vue-router": "^4.6.3",
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
-    "@minions/shared": "*",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^24.10.2"
   }

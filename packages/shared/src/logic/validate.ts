@@ -1,4 +1,4 @@
-import type { PageConfig, Section } from "@minions/shared";
+import type { PageConfig, Section } from "../types/landing";
 
 export type ValidationResult = {
   valid: boolean;

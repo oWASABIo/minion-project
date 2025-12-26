@@ -9,7 +9,7 @@ import type {
   TemplateDefinition,
 } from "@minions/shared";
 
-import { getStackSpec } from "./stack-spec";
+import { getStackSpec } from "@minions/shared";
 import { gettemplateSpec } from "./template-spec";
 
 export function hashString(s: string) {
