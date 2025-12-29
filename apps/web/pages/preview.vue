@@ -80,6 +80,7 @@ onMounted(() => {
         console.log("[Preview] Field Selected:", sectionId, fieldKey);
 
         // Notify parent to open sidebar
+        // Notify parent to open sidebar
         window.parent.postMessage(
           {
             type: "selectField",
@@ -90,17 +91,44 @@ onMounted(() => {
         );
 
         // --- INLINE EDITING LOGIC ---
+        // Special case: Images (only select, don't edit text)
+        if (target.tagName === "IMG") {
+          return;
+        }
+
         // Enable contenteditable
         fieldEl.contentEditable = "true";
         fieldEl.focus();
 
-        // Optional: Select all text for easier replacement
-        // document.execCommand('selectAll', false, undefined);
+        // Handle Paste (Strip HTML)
+        const onPaste = (ev: ClipboardEvent) => {
+          ev.preventDefault();
+          const text = ev.clipboardData?.getData("text/plain") || "";
+          document.execCommand("insertText", false, text);
+        };
+
+        // Handle Keydown (Standardize Enter)
+        const onKeydown = (ev: KeyboardEvent) => {
+          if (ev.key === "Enter") {
+            // For multiline-likely elements, Shift+Enter or just Enter is fine.
+            // But for titles/eyebrows, we might want to save on Enter.
+            const isMultiline =
+              fieldEl.tagName === "P" ||
+              fieldEl.classList.contains("leading-relaxed");
+
+            if (!isMultiline || (isMultiline && ev.ctrlKey)) {
+              if (!ev.shiftKey) {
+                ev.preventDefault();
+                fieldEl.blur(); // Triggers onBlur
+              }
+            }
+          }
+        };
 
         // Handle BLUR (Save)
         const onBlur = () => {
           fieldEl.contentEditable = "false";
-          const newVal = fieldEl.innerText; // or innerHTML if we support rich text
+          const newVal = fieldEl.innerText;
 
           window.parent.postMessage(
             {
@@ -114,21 +142,12 @@ onMounted(() => {
 
           fieldEl.removeEventListener("blur", onBlur);
           fieldEl.removeEventListener("keydown", onKeydown);
-        };
-
-        // Handle Keydown (Enter to save for single line)
-        const onKeydown = (ev: KeyboardEvent) => {
-          if (ev.key === "Enter") {
-            // If modifier (Shift+Enter), allow newline. Else save.
-            if (!ev.shiftKey) {
-              ev.preventDefault();
-              fieldEl.blur(); // Triggers onBlur
-            }
-          }
+          fieldEl.removeEventListener("paste", onPaste);
         };
 
         fieldEl.addEventListener("blur", onBlur);
         fieldEl.addEventListener("keydown", onKeydown);
+        fieldEl.addEventListener("paste", onPaste);
       }
     },
     true
@@ -145,7 +164,6 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-screen">
-    <!-- Note: PageRenderer might have its own background logic but default to dark fallback -->
     <NuxtErrorBoundary>
       <PageRenderer
         v-if="config"
@@ -200,3 +218,60 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style>
+/* Visual Editing Styles */
+[data-sb-field] {
+  position: relative;
+  transition: all 0.2s ease;
+  outline: none !important;
+}
+
+[data-sb-field]:hover {
+  cursor: text;
+  outline: 2px dotted #6366f1 !important; /* Indigo-500 */
+  outline-offset: 4px;
+  background-color: rgba(99, 102, 241, 0.05);
+  border-radius: 4px;
+}
+
+[data-sb-field]:focus {
+  outline: 2px solid #6366f1 !important;
+  outline-offset: 4px;
+  background-color: rgba(99, 102, 241, 0.1);
+  border-radius: 4px;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+/* Special Handling for Images */
+img[data-sb-field] {
+  cursor: pointer !important;
+}
+img[data-sb-field]:hover {
+  outline-style: solid !important;
+}
+
+/* Tooltip indicator */
+[data-sb-field]:hover::after {
+  content: "Click to edit";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #6366f1;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+[data-sb-field]:focus::after {
+  display: none;
+}
+</style>

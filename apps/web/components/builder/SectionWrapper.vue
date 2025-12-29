@@ -29,19 +29,50 @@ const classes = computed(() => {
   // Hover state (only if not selected)
   return `${base} border-transparent hover:border-primary/50 hover:bg-primary/5 hover:shadow-lg`;
 });
+const wrapperStyle = computed(() => {
+  const styles = (props.section as any).styles || {};
+  const bg = styles.backgroundColor;
+  const txt = styles.textColor;
+
+  if (!bg && !txt) return {};
+
+  return {
+    // Apply functionality to the wrapper itself
+    backgroundColor: bg,
+    color: txt,
+
+    // Inject variables for children components to consume
+    "--text-primary": txt,
+    "--text-secondary": txt ? `${txt}cc` : undefined, // 80% opacity for secondary
+    "--bg-section": bg,
+  };
+});
+
+const spacingClass = computed(() => {
+  const s = (props.section as any).styles?.spacing;
+  if (s === "none") return "py-0";
+  if (s === "sm") return "py-8";
+  if (s === "lg") return "py-24";
+  return "py-16"; // Default md
+});
 </script>
 
 <template>
-  <div
-    :id="`wrapper-${section.id}`"
+  <section
+    :id="section.id"
+    class="relative group transition-all duration-300 border-2 border-transparent"
+    :class="[
+      isSelected ? '!border-indigo-500 z-10' : 'hover:border-indigo-500/30',
+      spacingClass,
+    ]"
+    :style="wrapperStyle"
     :data-sb-section-id="section.id"
-    :class="classes"
-    @click.stop="isEditMode && emit('select', section.id)"
+    @click.stop="$emit('select', section.id)"
   >
     <!-- Edit Label (Center Top) -->
     <div
       v-if="isEditMode"
-      class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-lg pointer-events-none z-20 whitespace-nowrap"
+      class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-lg pointer-events-none z-20 whitespace-nowrap"
       :class="{ '!opacity-100': isSelected }"
     >
       {{ isSelected ? "Editing: " : "Edit " }} {{ section.type }}
@@ -55,9 +86,10 @@ const classes = computed(() => {
     >
       <button
         @click.stop="emit('move-up', section.id)"
-        class="p-1.5 bg-white text-slate-600 rounded-full shadow hover:bg-primary hover:text-white transition-colors flex items-center justify-center transform hover:scale-110 active:scale-90"
+        class="p-1.5 bg-white text-slate-600 rounded-full shadow hover:bg-indigo-600 hover:text-white transition-colors flex items-center justify-center transform hover:scale-110 active:scale-90"
         title="Move Up"
       >
+        <!-- Icon -->
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
@@ -73,9 +105,10 @@ const classes = computed(() => {
       </button>
       <button
         @click.stop="emit('move-down', section.id)"
-        class="p-1.5 bg-white text-slate-600 rounded-full shadow hover:bg-primary hover:text-white transition-colors flex items-center justify-center transform hover:scale-110 active:scale-90"
+        class="p-1.5 bg-white text-slate-600 rounded-full shadow hover:bg-indigo-600 hover:text-white transition-colors flex items-center justify-center transform hover:scale-110 active:scale-90"
         title="Move Down"
       >
+        <!-- Icon -->
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
@@ -134,5 +167,5 @@ const classes = computed(() => {
 
     <!-- Content -->
     <slot />
-  </div>
+  </section>
 </template>

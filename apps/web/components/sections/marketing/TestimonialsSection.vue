@@ -62,7 +62,7 @@ const props = defineProps<{
             <div
               class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-inner"
             >
-              {{ item.name.charAt(0) }}
+              {{ (item.name || "A").charAt(0) }}
             </div>
             <div>
               <div

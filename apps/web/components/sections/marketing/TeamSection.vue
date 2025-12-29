@@ -63,7 +63,7 @@ function getFallbackAvatar(name: string) {
               v-else
               class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 text-4xl font-bold text-slate-500 dark:text-slate-400"
             >
-              {{ member.name.charAt(0) }}
+              {{ (member.name || "M").charAt(0) }}
             </div>
 
             <!-- Social Overlay (Optional Style) -->

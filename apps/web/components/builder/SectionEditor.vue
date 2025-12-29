@@ -66,6 +66,14 @@ function addItem(listKey: string) {
     list.push({ name: "Member", role: "Role" });
   } else if (selectedSection.value.type === "faq") {
     list.push({ question: "New Question", answer: "Answer" });
+  } else if (selectedSection.value.type === "testimonials") {
+    list.push({
+      quote: "This is a new testimonial.",
+      name: "Customer Name",
+      role: "Job Title",
+    });
+  } else if (selectedSection.value.type === "stats") {
+    list.push({ value: "100+", label: "New Stat" });
   } else {
     list.push({ title: "New Item", description: "Description" });
   }
@@ -110,6 +118,18 @@ function getListKey(type: string): string {
   return "items";
 }
 
+// Helper to update specific style field
+function updateStyle(key: string, value: any) {
+  if (!selectedSection.value) return;
+  const styles = {
+    ...((selectedSection.value as any).styles || {}),
+    [key]: value,
+  };
+  updateField("styles", styles);
+}
+
+const activeTab = ref<"content" | "design">("content");
+
 defineExpose({ focusField });
 </script>
 
@@ -118,9 +138,31 @@ defineExpose({ focusField });
     <div
       class="flex items-center justify-between border-b border-white/10 pb-3"
     >
-      <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-        Edit {{ selectedSection.type }}
-      </h3>
+      <div class="flex gap-4">
+        <button
+          @click="activeTab = 'content'"
+          class="text-xs font-bold uppercase tracking-wider transition-colors"
+          :class="
+            activeTab === 'content'
+              ? 'text-white border-b-2 border-indigo-500 pb-1'
+              : 'text-slate-500 hover:text-slate-300'
+          "
+        >
+          Content
+        </button>
+        <button
+          @click="activeTab = 'design'"
+          class="text-xs font-bold uppercase tracking-wider transition-colors"
+          :class="
+            activeTab === 'design'
+              ? 'text-white border-b-2 border-indigo-500 pb-1'
+              : 'text-slate-500 hover:text-slate-300'
+          "
+        >
+          Design
+        </button>
+      </div>
+
       <button
         @click="$emit('close')"
         class="text-xs text-slate-400 hover:text-white"
@@ -129,7 +171,13 @@ defineExpose({ focusField });
       </button>
     </div>
 
-    <div class="space-y-4">
+    <!-- Content Tab -->
+    <div v-show="activeTab === 'content'" class="space-y-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest">
+          {{ selectedSection.type }} Content
+        </h3>
+      </div>
       <!-- Common Text Fields -->
       <div v-if="'eyebrow' in selectedSection">
         <BaseInput
@@ -563,5 +611,87 @@ defineExpose({ focusField });
         ID: {{ selectedSection.id }}
       </div>
     </div>
+
+    <!-- Design Tab -->
+    <div v-show="activeTab === 'design'" class="space-y-6">
+      <div class="flex justify-end">
+        <button
+          @click="$emit('close')"
+          class="text-xs text-slate-400 hover:text-white"
+        >
+          Close
+        </button>
+      </div>
+
+      <div>
+        <label
+          class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-3"
+          >Colors</label
+        >
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-300">Background</span>
+            <div class="flex items-center gap-2">
+              <input
+                type="color"
+                :value="getField('styles.backgroundColor') || '#111827'"
+                @input="e => updateStyle('backgroundColor', (e.target as HTMLInputElement).value)"
+                class="w-6 h-6 rounded cursor-pointer bg-transparent border-0"
+              />
+              <input
+                type="text"
+                :value="getField('styles.backgroundColor')"
+                @input="e => updateStyle('backgroundColor', (e.target as HTMLInputElement).value)"
+                class="w-20 rounded bg-slate-900 px-2 py-1 text-[10px] text-white ring-1 ring-white/10"
+                placeholder="#000000"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-300">Text Color</span>
+            <div class="flex items-center gap-2">
+              <input
+                type="color"
+                :value="getField('styles.textColor') || '#ffffff'"
+                @input="e => updateStyle('textColor', (e.target as HTMLInputElement).value)"
+                class="w-6 h-6 rounded cursor-pointer bg-transparent border-0"
+              />
+              <input
+                type="text"
+                :value="getField('styles.textColor')"
+                @input="e => updateStyle('textColor', (e.target as HTMLInputElement).value)"
+                class="w-20 rounded bg-slate-900 px-2 py-1 text-[10px] text-white ring-1 ring-white/10"
+                placeholder="#ffffff"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label
+          class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-3"
+          >Spacing</label
+        >
+        <div class="grid grid-cols-4 gap-2">
+          <button
+            v-for="s in ['none', 'sm', 'md', 'lg']"
+            :key="s"
+            @click="updateStyle('spacing', s)"
+            class="px-2 py-2 text-[10px] font-bold uppercase rounded-lg border transition-all"
+            :class="
+              getField('styles.spacing') === s ||
+              (!getField('styles.spacing') && s === 'md')
+                ? 'bg-indigo-600 border-indigo-500 text-white'
+                : 'bg-slate-900/50 border-white/10 text-slate-400 hover:text-white'
+            "
+          >
+            {{ s }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
+```
