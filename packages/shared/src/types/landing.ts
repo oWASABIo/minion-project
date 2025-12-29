@@ -1,5 +1,3 @@
-// ~/types/landing.ts
-
 export type Pagetemplate =
   | "landing"
   | "company"
@@ -69,6 +67,12 @@ export type SectionType =
 export type SectionBase = {
   id: string;
   type: SectionType;
+  styles?: {
+    backgroundColor?: string;
+    textColor?: string;
+    accentColor?: string;
+    spacing?: "sm" | "md" | "lg" | "none";
+  };
 };
 
 export type CliSection = SectionBase & {
