@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TeamSection as TeamSectionType } from "@minions/shared";
 
-defineProps<{
+const props = defineProps<{
   section: TeamSectionType;
 }>();
 

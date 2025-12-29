@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useBuilderStore } from "~/stores/builder";
 import { storeToRefs } from "pinia";
+import { throttle } from "~/utils/performance";
 
 export function usePreviewSync() {
   const store = useBuilderStore();
@@ -10,25 +11,24 @@ export function usePreviewSync() {
   const previewIframe = ref<HTMLIFrameElement | null>(null);
   const isPreviewReady = ref(false);
 
-  function debounce(fn: Function, delay: number) {
-    let timeoutId: any;
-    return (...args: any[]) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => fn(...args), delay);
-    };
-  }
-
   const getIframeWindow = () => {
     if (!previewIframe.value) return null;
-    // Check if it's a component with exposed ref
-    if ((previewIframe.value as any).iframeRef) {
-      return (previewIframe.value as any).iframeRef.contentWindow;
+
+    // 1. If it's the PreviewFrame component (which exposes iframeRef)
+    const comp = previewIframe.value as any;
+    if (comp.iframeRef && comp.iframeRef.contentWindow) {
+      return comp.iframeRef.contentWindow;
     }
-    // Fallback: assume it's the element itself
-    return (previewIframe.value as unknown as HTMLIFrameElement).contentWindow;
+
+    // 2. Fallback: If it's a raw HTMLIFrameElement
+    if ("contentWindow" in previewIframe.value) {
+      return previewIframe.value.contentWindow;
+    }
+
+    return null;
   };
 
-  const syncPreview = () => {
+  const syncPreview = throttle(() => {
     const win = getIframeWindow();
     if (!win || !isPreviewReady.value || !currentPageConfig.value) {
       return;
@@ -43,9 +43,9 @@ export function usePreviewSync() {
       },
       "*"
     );
-  };
+  }, 100);
 
-  // Immediate sync without debounce (for initial load)
+  // Immediate sync without debounce (for initial load or critical updates)
   const forceSyncPreview = () => {
     const win = getIframeWindow();
     if (!win || !isPreviewReady.value || !currentPageConfig.value) return;

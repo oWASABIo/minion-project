@@ -58,7 +58,6 @@ export type SectionType =
   | "testimonials"
   | "faq"
   | "blogList"
-  | "bloglist"
   | "cta"
   | "pricing"
   | "stats"
@@ -147,7 +146,7 @@ export type ProductDetailSection = SectionBase & {
 };
 
 export type BlogListSection = SectionBase & {
-  type: "blogList" | "bloglist";
+  type: "blogList";
   title?: string;
 
   // ✅ แก้ error subtitle ไม่อยู่ใน type

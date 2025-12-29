@@ -5,21 +5,84 @@ import BaseInput from "~/components/ui/BaseInput.vue";
 import BaseTextarea from "~/components/ui/BaseTextarea.vue";
 import { useBuilderStore } from "~/stores/builder";
 import { storeToRefs } from "pinia";
+import { usePreviewSync } from "~/composables/usePreviewSync";
 
 const store = useBuilderStore();
 const { selectedSection } = storeToRefs(store);
+const { forceSyncPreview } = usePreviewSync();
 
 const emit = defineEmits<{
   (e: "close"): void;
 }>();
 
 // Helper to update specific field
-function updateField(key: any, value: any) {
+function updateField(key: string, value: any) {
   if (!selectedSection.value) return;
   store.updateSection({ ...selectedSection.value, [key]: value } as Section);
+
+  // Force sync to bypass any throttle during active editing if needed
+  // (Optional, syncPreview is usually enough, but let's be safe for now)
+  forceSyncPreview();
+}
+
+function updateItemField(
+  listKey: string,
+  index: number | string,
+  field: string,
+  value: any
+) {
+  if (!selectedSection.value) return;
+  const list = [...((selectedSection.value as any)[listKey] || [])];
+  const idx = Number(index);
+  if (!list[idx]) return;
+
+  if (field.includes(".")) {
+    const [parent, child] = field.split(".");
+    list[idx] = {
+      ...list[idx],
+      [parent]: { ...list[idx][parent], [child]: value },
+    };
+  } else {
+    list[idx] = { ...list[idx], [field]: value };
+  }
+
+  updateField(listKey, list);
+}
+
+function removeItem(listKey: string, index: number | string) {
+  if (!selectedSection.value) return;
+  const list = [...((selectedSection.value as any)[listKey] || [])];
+  list.splice(Number(index), 1);
+  updateField(listKey, list);
+}
+
+function addItem(listKey: string) {
+  if (!selectedSection.value) return;
+  const list = [...((selectedSection.value as any)[listKey] || [])];
+
+  if (listKey === "plans") {
+    list.push({ name: "Plan", price: "$10", features: [] });
+  } else if (listKey === "members") {
+    list.push({ name: "Member", role: "Role" });
+  } else if (selectedSection.value.type === "faq") {
+    list.push({ question: "New Question", answer: "Answer" });
+  } else {
+    list.push({ title: "New Item", description: "Description" });
+  }
+
+  updateField(listKey, list);
 }
 
 const containerRef = ref<HTMLElement | null>(null);
+
+function getField(key: string): any {
+  if (!selectedSection.value) return undefined;
+  if (key.includes(".")) {
+    const [parent, child] = key.split(".");
+    return (selectedSection.value as any)[parent]?.[child];
+  }
+  return (selectedSection.value as any)[key];
+}
 
 function focusField(key: string) {
   if (!containerRef.value) return;
@@ -39,6 +102,12 @@ function focusField(key: string) {
       }, 1000);
     }
   }, 100);
+}
+
+function getListKey(type: string): string {
+  if (type === "team") return "members";
+  if (type === "pricing") return "plans";
+  return "items";
 }
 
 defineExpose({ focusField });
@@ -65,7 +134,7 @@ defineExpose({ focusField });
       <div v-if="'eyebrow' in selectedSection">
         <BaseInput
           label="Eyebrow"
-          :model-value="(selectedSection as any).eyebrow"
+          :model-value="getField('eyebrow')"
           @update:model-value="(val) => updateField('eyebrow', val)"
           data-field-key="eyebrow"
         />
@@ -75,7 +144,7 @@ defineExpose({ focusField });
         <BaseTextarea
           label="Headline"
           :rows="2"
-          :model-value="(selectedSection as any).headline"
+          :model-value="getField('headline')"
           @update:model-value="(val) => updateField('headline', val)"
           data-field-key="headline"
         />
@@ -84,7 +153,7 @@ defineExpose({ focusField });
       <div v-if="'title' in selectedSection">
         <BaseInput
           label="Title"
-          :model-value="(selectedSection as any).title"
+          :model-value="getField('title')"
           @update:model-value="(val) => updateField('title', val)"
           data-field-key="title"
         />
@@ -94,7 +163,7 @@ defineExpose({ focusField });
         <BaseTextarea
           label="Subheadline"
           :rows="2"
-          :model-value="(selectedSection as any).subheadline"
+          :model-value="getField('subheadline')"
           @update:model-value="(val) => updateField('subheadline', val)"
           data-field-key="subheadline"
         />
@@ -107,16 +176,13 @@ defineExpose({ focusField });
         >
         <div class="flex gap-3">
           <div
-            v-if="(selectedSection as any).image"
+            v-if="getField('image')"
             class="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-white/10 bg-slate-800"
           >
-            <img
-              :src="(selectedSection as any).image"
-              class="h-full w-full object-cover"
-            />
+            <img :src="getField('image')" class="h-full w-full object-cover" />
           </div>
           <BaseInput
-            :model-value="(selectedSection as any).image"
+            :model-value="getField('image')"
             @update:model-value="(val) => updateField('image', val)"
             placeholder="https://..."
             data-field-key="image"
@@ -128,7 +194,7 @@ defineExpose({ focusField });
         <BaseTextarea
           label="Subtitle"
           :rows="2"
-          :model-value="(selectedSection as any).subtitle"
+          :model-value="getField('subtitle')"
           @update:model-value="(val) => updateField('subtitle', val)"
           data-field-key="subtitle"
         />
@@ -138,7 +204,7 @@ defineExpose({ focusField });
         <BaseTextarea
           label="Description"
           :rows="3"
-          :model-value="(selectedSection as any).description"
+          :model-value="getField('description')"
           @update:model-value="(val) => updateField('description', val)"
           data-field-key="description"
         />
@@ -153,14 +219,26 @@ defineExpose({ focusField });
         >
         <div class="grid grid-cols-2 gap-2">
           <BaseInput
-            :model-value="(selectedSection as any).primaryCta.label"
-            @update:model-value="val => updateField('primaryCta', { ...(selectedSection as any).primaryCta, label: val })"
+            :model-value="getField('primaryCta.label')"
+            @update:model-value="
+              (val) =>
+                updateField('primaryCta', {
+                  ...getField('primaryCta'),
+                  label: val,
+                })
+            "
             placeholder="Label"
             data-field-key="primaryCta.label"
           />
           <BaseInput
-            :model-value="(selectedSection as any).primaryCta.href"
-            @update:model-value="val => updateField('primaryCta', { ...(selectedSection as any).primaryCta, href: val })"
+            :model-value="getField('primaryCta.href')"
+            @update:model-value="
+              (val) =>
+                updateField('primaryCta', {
+                  ...getField('primaryCta'),
+                  href: val,
+                })
+            "
             placeholder="Link"
             data-field-key="primaryCta.href"
           />
@@ -176,22 +254,34 @@ defineExpose({ focusField });
         >
         <div class="grid grid-cols-2 gap-2">
           <BaseInput
-            :model-value="(selectedSection as any).secondaryCta.label"
-            @update:model-value="val => updateField('secondaryCta', { ...(selectedSection as any).secondaryCta, label: val })"
+            :model-value="getField('secondaryCta.label')"
+            @update:model-value="
+              (val) =>
+                updateField('secondaryCta', {
+                  ...getField('secondaryCta'),
+                  label: val,
+                })
+            "
             placeholder="Label"
             data-field-key="secondaryCta.label"
           />
           <BaseInput
-            :model-value="(selectedSection as any).secondaryCta.href"
-            @update:model-value="val => updateField('secondaryCta', { ...(selectedSection as any).secondaryCta, href: val })"
+            :model-value="getField('secondaryCta.href')"
+            @update:model-value="
+              (val) =>
+                updateField('secondaryCta', {
+                  ...getField('secondaryCta'),
+                  href: val,
+                })
+            "
             placeholder="Link"
             data-field-key="secondaryCta.href"
           />
         </div>
       </div>
 
-      <!-- Generic List Editor (Items, Plans, Members) -->
-      <div v-for="listKey in ['items', 'plans', 'members']" :key="listKey">
+      <!-- List Editor (Items, Plans, Members) -->
+      <div v-for="listKey in [getListKey(selectedSection.type)]" :key="listKey">
         <div
           v-if="listKey in selectedSection && Array.isArray((selectedSection as any)[listKey])"
         >
@@ -207,11 +297,7 @@ defineExpose({ focusField });
               class="relative rounded-lg bg-slate-800/50 p-3 ring-1 ring-white/10"
             >
               <button
-                @click="() => {
-                  const newItems = [...(selectedSection as any)[listKey]];
-                  newItems.splice(Number(index), 1);
-                  updateField(listKey, newItems);
-                }"
+                @click="removeItem(listKey, index)"
                 class="absolute top-2 right-2 text-slate-500 hover:text-red-400"
               >
                 <svg
@@ -227,175 +313,201 @@ defineExpose({ focusField });
               </button>
 
               <div class="space-y-2 pr-6">
-                <!-- Common Title/Name -->
-                <!-- Common Title/Name -->
-                <BaseInput
-                  v-if="'title' in item || 'head' in item || 'name' in item"
-                  :model-value="item.title || item.head || item.name"
-                  @update:model-value="val => {
-                     const newItems = [...(selectedSection as any)[listKey]];
-                     const key = 'title' in item ? 'title' : 'head' in item ? 'head' : 'name';
-                     newItems[Number(index)] = { ...item, [key]: val };
-                     updateField(listKey, newItems);
-                   }"
-                  :placeholder="'name' in item ? 'Name' : 'Title'"
-                  :data-field-key="`${listKey}.${index}.${
-                    'title' in item ? 'title' : 'head' in item ? 'head' : 'name'
-                  }`"
-                />
-
-                <!-- Pricing: Price & Period -->
-                <!-- Pricing: Price & Period -->
-                <div v-if="'price' in item" class="flex gap-2">
-                  <BaseInput
-                    :model-value="item.price"
-                    @update:model-value="val => {
-                       const newItems = [...(selectedSection as any)[listKey]];
-                       newItems[Number(index)] = { ...item, price: val };
-                       updateField(listKey, newItems);
-                     }"
-                    placeholder="$99"
-                    :data-field-key="`${listKey}.${index}.price`"
-                  />
-                  <BaseInput
-                    v-if="'period' in item"
-                    :model-value="item.period"
-                    @update:model-value="val => {
-                       const newItems = [...(selectedSection as any)[listKey]];
-                       newItems[Number(index)] = { ...item, period: val };
-                       updateField(listKey, newItems);
-                     }"
-                    placeholder="/mo"
-                    :data-field-key="`${listKey}.${index}.period`"
-                  />
-                </div>
-
-                <!-- Stats: Value & Label -->
-                <!-- Stats: Value & Label -->
-                <div v-if="'value' in item">
-                  <BaseInput
-                    :model-value="item.value"
-                    @update:model-value="val => {
-                       const newItems = [...(selectedSection as any)[listKey]];
-                       newItems[Number(index)] = { ...item, value: val };
-                       updateField(listKey, newItems);
-                     }"
-                    placeholder="Value"
-                    :data-field-key="`${listKey}.${index}.value`"
-                  />
-                  <BaseInput
-                    v-if="'label' in item"
-                    :model-value="item.label"
-                    @update:model-value="val => {
-                       const newItems = [...(selectedSection as any)[listKey]];
-                       newItems[Number(index)] = { ...item, label: val };
-                       updateField(listKey, newItems);
-                     }"
-                    placeholder="Label"
-                    :data-field-key="`${listKey}.${index}.label`"
-                  />
-                </div>
-
-                <!-- Features/Text: Description/Quote -->
-                <!-- Features/Text: Description/Quote -->
-                <BaseTextarea
+                <!-- Specialized: Features / Items -->
+                <template
                   v-if="
-                    'description' in item || 'quote' in item || 'bio' in item
+                    ['features', 'productList', 'stats'].includes(
+                      selectedSection.type
+                    )
                   "
-                  :model-value="item.description || item.quote || item.bio"
-                  @update:model-value="val => {
-                     const newItems = [...(selectedSection as any)[listKey]];
-                     const key = 'quote' in item ? 'quote' : 'bio' in item ? 'bio' : 'description';
-                     newItems[Number(index)] = { ...item, [key]: val };
-                     updateField(listKey, newItems);
-                   }"
-                  :rows="2"
-                  placeholder="Description / Quote"
-                  :data-field-key="`${listKey}.${index}.${
-                    'quote' in item
-                      ? 'quote'
-                      : 'bio' in item
-                      ? 'bio'
-                      : 'description'
-                  }`"
-                />
+                >
+                  <BaseInput
+                    label="Title / Value"
+                    :model-value="item.title || item.value"
+                    @update:model-value="
+                      (val) =>
+                        updateItemField(
+                          listKey,
+                          index,
+                          'title' in item ? 'title' : 'value',
+                          val
+                        )
+                    "
+                    placeholder="Title"
+                  />
+                  <BaseTextarea
+                    label="Description / Label"
+                    :model-value="item.description || item.label"
+                    @update:model-value="
+                      (val) =>
+                        updateItemField(
+                          listKey,
+                          index,
+                          'description' in item ? 'description' : 'label',
+                          val
+                        )
+                    "
+                    :rows="2"
+                    placeholder="Description"
+                  />
+                </template>
 
-                <!-- FAQ: Question & Answer -->
-                <!-- FAQ: Question & Answer -->
-                <BaseInput
-                  v-if="'question' in item || 'q' in item"
-                  :model-value="item.question || item.q"
-                  @update:model-value="val => {
-                     const newItems = [...(selectedSection as any)[listKey]];
-                     const key = 'q' in item ? 'q' : 'question';
-                     newItems[Number(index)] = { ...item, [key]: val };
-                     updateField(listKey, newItems);
-                   }"
-                  placeholder="Question"
-                  :data-field-key="`${listKey}.${index}.${
-                    'q' in item ? 'q' : 'question'
-                  }`"
-                />
-                <BaseTextarea
-                  v-if="'answer' in item || 'a' in item"
-                  :model-value="item.answer || item.a"
-                  @update:model-value="val => {
-                     const newItems = [...(selectedSection as any)[listKey]];
-                     const key = 'a' in item ? 'a' : 'answer';
-                     newItems[Number(index)] = { ...item, [key]: val };
-                     updateField(listKey, newItems);
-                   }"
-                  :rows="2"
-                  placeholder="Answer"
-                  :data-field-key="`${listKey}.${index}.${
-                    'a' in item ? 'a' : 'answer'
-                  }`"
-                />
+                <!-- Specialized: Pricing -->
+                <template v-else-if="selectedSection.type === 'pricing'">
+                  <BaseInput
+                    label="Plan Name"
+                    :model-value="item.name"
+                    @update:model-value="
+                      (val) => updateItemField(listKey, index, 'name', val)
+                    "
+                    placeholder="Pro"
+                  />
+                  <div class="flex gap-2">
+                    <BaseInput
+                      label="Price"
+                      :model-value="item.price"
+                      @update:model-value="
+                        (val) => updateItemField(listKey, index, 'price', val)
+                      "
+                      placeholder="$99"
+                    />
+                    <BaseInput
+                      label="Period"
+                      :model-value="item.period"
+                      @update:model-value="
+                        (val) => updateItemField(listKey, index, 'period', val)
+                      "
+                      placeholder="/mo"
+                    />
+                  </div>
+                  <BaseTextarea
+                    label="Description"
+                    :model-value="item.description"
+                    @update:model-value="
+                      (val) =>
+                        updateItemField(listKey, index, 'description', val)
+                    "
+                    :rows="2"
+                    placeholder="Perfect for..."
+                  />
+                </template>
 
-                <!-- Team: Role -->
-                <!-- Team: Role -->
-                <BaseInput
-                  v-if="'role' in item"
-                  :model-value="item.role"
-                  @update:model-value="val => {
-                     const newItems = [...(selectedSection as any)[listKey]];
-                     newItems[Number(index)] = { ...item, role: val };
-                     updateField(listKey, newItems);
-                   }"
-                  placeholder="Role"
-                  :data-field-key="`${listKey}.${index}.role`"
-                />
+                <!-- Specialized: FAQ -->
+                <template v-else-if="selectedSection.type === 'faq'">
+                  <BaseInput
+                    label="Question"
+                    :model-value="item.question || item.q"
+                    @update:model-value="
+                      (val) =>
+                        updateItemField(
+                          listKey,
+                          index,
+                          'q' in item ? 'q' : 'question',
+                          val
+                        )
+                    "
+                    placeholder="Question"
+                  />
+                  <BaseTextarea
+                    label="Answer"
+                    :model-value="item.answer || item.a"
+                    @update:model-value="
+                      (val) =>
+                        updateItemField(
+                          listKey,
+                          index,
+                          'a' in item ? 'a' : 'answer',
+                          val
+                        )
+                    "
+                    :rows="2"
+                    placeholder="Answer"
+                  />
+                </template>
 
-                <!-- CTA (Nested) -->
+                <!-- Specialized: Team -->
+                <template v-else-if="selectedSection.type === 'team'">
+                  <BaseInput
+                    label="Name"
+                    :model-value="item.name"
+                    @update:model-value="
+                      (val) => updateItemField(listKey, index, 'name', val)
+                    "
+                    placeholder="John Doe"
+                  />
+                  <BaseInput
+                    label="Role"
+                    :model-value="item.role"
+                    @update:model-value="
+                      (val) => updateItemField(listKey, index, 'role', val)
+                    "
+                    placeholder="CEO"
+                  />
+                  <BaseTextarea
+                    label="Bio"
+                    :model-value="item.bio"
+                    @update:model-value="
+                      (val) => updateItemField(listKey, index, 'bio', val)
+                    "
+                    :rows="2"
+                    placeholder="Bio"
+                  />
+                </template>
+
+                <!-- Specialized: Testimonials -->
+                <template v-else-if="selectedSection.type === 'testimonials'">
+                  <BaseTextarea
+                    label="Quote"
+                    :model-value="item.quote"
+                    @update:model-value="
+                      (val) => updateItemField(listKey, index, 'quote', val)
+                    "
+                    :rows="3"
+                    placeholder="Best service ever!"
+                  />
+                  <BaseInput
+                    label="Author Name"
+                    :model-value="item.name"
+                    @update:model-value="
+                      (val) => updateItemField(listKey, index, 'name', val)
+                    "
+                    placeholder="Sarah Jones"
+                  />
+                  <BaseInput
+                    label="Role/Company"
+                    :model-value="item.role"
+                    @update:model-value="
+                      (val) => updateItemField(listKey, index, 'role', val)
+                    "
+                    placeholder="Marketing Manager"
+                  />
+                </template>
+
+                <!-- CTA (Nested) - For Pricing or others -->
                 <div
                   v-if="'cta' in item && item.cta"
                   class="mt-2 pt-2 border-t border-white/5"
                 >
-                  <p
-                    class="text-[10px] uppercase text-slate-500 font-semibold mb-1"
+                  <label
+                    class="text-[10px] font-bold text-slate-500 uppercase block mb-1"
+                    >Button</label
                   >
-                    Button
-                  </p>
                   <div class="grid grid-cols-2 gap-2">
                     <BaseInput
                       :model-value="item.cta.label"
-                      @update:model-value="val => {
-                         const newItems = [...(selectedSection as any)[listKey]];
-                         newItems[Number(index)] = { ...item, cta: { ...item.cta, label: val } };
-                         updateField(listKey, newItems);
-                       }"
+                      @update:model-value="
+                        (val) =>
+                          updateItemField(listKey, index, 'cta.label', val)
+                      "
                       placeholder="Label"
-                      :data-field-key="`${listKey}.${index}.cta.label`"
                     />
                     <BaseInput
                       :model-value="item.cta.href"
-                      @update:model-value="val => {
-                         const newItems = [...(selectedSection as any)[listKey]];
-                         newItems[Number(index)] = { ...item, cta: { ...item.cta, href: val } };
-                         updateField(listKey, newItems);
-                       }"
+                      @update:model-value="
+                        (val) =>
+                          updateItemField(listKey, index, 'cta.href', val)
+                      "
                       placeholder="Link"
-                      :data-field-key="`${listKey}.${index}.cta.href`"
                     />
                   </div>
                 </div>
@@ -403,48 +515,12 @@ defineExpose({ focusField });
             </div>
 
             <button
-              @click="() => {
-                 const newItems = [...(selectedSection as any)[listKey]];
-                 if (listKey === 'plans') newItems.push({ name: 'Plan', price: '$10', features: [] });
-                 else if (listKey === 'members') newItems.push({ name: 'Member', role: 'Role' });
-                 else if (selectedSection?.type === 'faq') newItems.push({ question: 'New Question', answer: 'Answer' });
-                 else newItems.push({ title: 'New Item', description: 'Description' });
-                 updateField(listKey, newItems);
-              }"
+              @click="addItem(listKey)"
               class="w-full rounded-lg border border-dashed border-white/20 p-2 text-sm text-slate-400 hover:border-indigo-500 hover:text-indigo-400 transition-colors"
             >
               + Add {{ listKey.slice(0, -1) }}
             </button>
           </div>
-        </div>
-      </div>
-
-      <!-- JSON Array Editor for Complex Lists -->
-      <div v-for="key in ['items', 'plans', 'members']" :key="key">
-        <div
-          v-if="key in selectedSection && Array.isArray((selectedSection as any)[key])"
-        >
-          <label
-            class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-1"
-          >
-            {{ key }} (JSON)
-          </label>
-          <textarea
-            :value="JSON.stringify((selectedSection as any)[key], null, 2)"
-            rows="6"
-            @change="e => {
-               try {
-                 const parsed = JSON.parse((e.target as HTMLTextAreaElement).value);
-                 updateField(key, parsed);
-               } catch (err) {
-                 console.error('Invalid JSON');
-               }
-             }"
-            class="w-full rounded-lg bg-slate-900/80 px-3 py-2 text-xs font-mono text-slate-300 ring-1 ring-white/10 focus:ring-indigo-500"
-          ></textarea>
-          <p class="text-[10px] text-slate-500 mt-1">
-            Edit raw JSON to update list items.
-          </p>
         </div>
       </div>
 

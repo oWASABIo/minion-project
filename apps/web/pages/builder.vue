@@ -99,12 +99,13 @@ function onMessage(event: MessageEvent) {
     isPreviewReady.value = true;
     syncPreview();
   } else if (data.type === "selectSection") {
-    isPreviewReady.value = true;
-    syncPreview(); // Initial sync can be debounced or immediate, debounced is fine.
-  } else if (data.type === "selectSection") {
     store.selectSection(data.id);
   } else if (data.type === "reorderSection") {
-    onReorderSection(data);
+    store.reorderSection(data.id, data.direction);
+  } else if (data.type === "duplicateSection") {
+    store.duplicateSection(data.id);
+  } else if (data.type === "deleteSection") {
+    store.deleteSection(data.id);
   } else if (data.type === "selectField") {
     // Visual Editing: Select section and focus field
     store.selectSection(data.sectionId);
@@ -118,13 +119,19 @@ function onMessage(event: MessageEvent) {
     });
   } else if (data.type === "updateField") {
     // Inline Edit
-    store.updateSectionField(data.sectionId, data.field, data.value);
+    store.updateSectionContent(
+      store.currentPageId!,
+      data.sectionId,
+      data.field,
+      data.value
+    );
   }
 }
 
 watch(
-  [currentPageConfig, isEditMode, selectedSectionId],
-  () => {
+  () => [store.projectConfig, isEditMode.value, selectedSectionId.value],
+  ([newConfig], [oldConfig]) => {
+    // console.log("[Builder] Watch triggered for syncPreview");
     syncPreview();
   },
   { deep: true }

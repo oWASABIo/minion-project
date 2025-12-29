@@ -16,7 +16,6 @@ function onMessage(event: MessageEvent) {
   if (!data) return;
 
   if (data.type === "updateConfig") {
-    console.log("[Preview] Received Config:", data.config);
     config.value = data.config;
     if (data.isEditMode !== undefined) isEditMode.value = data.isEditMode;
     if (data.selectedSectionId !== undefined)
@@ -35,6 +34,14 @@ function onSelectSection(id: string) {
 
 function onReorderSection(payload: { id: string; direction: "up" | "down" }) {
   window.parent.postMessage({ type: "reorderSection", ...payload }, "*");
+}
+
+function onDuplicateSection(id: string) {
+  window.parent.postMessage({ type: "duplicateSection", id }, "*");
+}
+
+function onDeleteSection(id: string) {
+  window.parent.postMessage({ type: "deleteSection", id }, "*");
 }
 
 onMounted(() => {
@@ -148,6 +155,8 @@ onUnmounted(() => {
         :enableContainer="false"
         @select-section="onSelectSection"
         @reorder-section="onReorderSection"
+        @duplicateSection="onDuplicateSection"
+        @deleteSection="onDeleteSection"
       />
 
       <template #error="{ error }">

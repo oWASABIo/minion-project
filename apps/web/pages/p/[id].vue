@@ -128,6 +128,12 @@ function handleLinkClick(e: MouseEvent) {
     // Optional: Show 404 toast
   }
 }
+
+function postToParent(type: string, payload: any = {}) {
+  if (typeof window !== "undefined") {
+    window.parent.postMessage({ type, ...payload }, "*");
+  }
+}
 </script>
 
 <template>
@@ -167,6 +173,12 @@ function handleLinkClick(e: MouseEvent) {
             :config="config as any"
             headerMode="generated"
             :enableContainer="false"
+            @select-section="(id) => postToParent('selectSection', { id })"
+            @reorder-section="
+              (payload) => postToParent('reorderSection', payload)
+            "
+            @duplicateSection="(id) => postToParent('duplicateSection', { id })"
+            @deleteSection="(id) => postToParent('deleteSection', { id })"
           />
 
           <!-- Floating Theme Toggle -->

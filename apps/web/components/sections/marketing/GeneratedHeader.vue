@@ -6,6 +6,7 @@ import {
   XMarkIcon,
 } from "@heroicons/vue/24/outline";
 import type { PageConfig } from "@minions/shared";
+import { useNavigation } from "~/composables/useNavigation";
 
 const { cartCount, toggleDrawer } = useCart();
 const mobileMenuOpen = ref(false);
@@ -14,100 +15,9 @@ const props = defineProps<{
   config: PageConfig;
 }>();
 
-const siteName = computed(
-  () => props.config.site?.siteName || "Generated Site"
+const { siteName, tagline, menuItems, showCart, secondaryCta } = useNavigation(
+  computed(() => props.config)
 );
-const tagline = computed(() => props.config.site?.tagline || "");
-
-// TODO: In Phase 11, we will generate real menu items from config.pages
-const menuItems = computed(() => {
-  // 1. Use Real Pages if available
-  // config.pages is injected by p/[id].vue
-  if ((props.config as any).pages) {
-    const pages = (props.config as any).pages;
-
-    // Sort logic: Home first, then meaningful pages, then others
-    const order = [
-      "home",
-      "shop",
-      "blog",
-      "about",
-      "contact",
-      "features",
-      "pricing",
-    ];
-
-    return (
-      Object.entries(pages)
-        .map(([key, page]: any) => {
-          const href = key === "home" ? "/" : `/${key}`;
-
-          // Format Label: 'product-detail' -> 'Product Detail'
-          let label = page.meta?.title;
-          if (!label) {
-            // Fallback: Convert key to Title Case (handle kebab/snake case)
-            label = key
-              .replace(/[-_]/g, " ")
-              .replace(/([a-z])([A-Z])/g, "$1 $2") // camelCase to space
-              .replace(/\b\w/g, (l: string) => l.toUpperCase());
-          }
-
-          return { key, label, href };
-        })
-        // Show ALL pages except maybe strictly internal ones if we really want to hide them.
-        // User requested to see what was generated, so let's be permissible.
-        // Only hide 'cart' or 'checkout' if they are not relevant for navigation?
-        // For now, let's show everything except maybe 'cart' as that's usually an icon.
-        .filter((p) => !["cart"].includes(p.key))
-        .sort((a, b) => {
-          const indexA = order.indexOf(a.key.toLowerCase());
-          const indexB = order.indexOf(b.key.toLowerCase());
-
-          // If both are known, sort by order
-          if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-          // If only A is known, A comes first
-          if (indexA !== -1) return -1;
-          // If only B is known, B comes first
-          if (indexB !== -1) return 1;
-
-          // Otherwise, alphabetical
-          return a.key.localeCompare(b.key);
-        })
-    );
-  }
-
-  // 2. Fallback to Mock Data (Existing logic)
-  if (props.config.template === "ecommerce") {
-    return [
-      { label: "Home", href: "/" },
-      { label: "Shop", href: "/#products" },
-      { label: "About", href: "/#features" },
-    ];
-  }
-  if (props.config.template === "blog") {
-    return [
-      { label: "Home", href: "/" },
-      { label: "Articles", href: "/#latest-posts" },
-      { label: "Subscribe", href: "/#newsletter" },
-    ];
-  }
-  return [
-    { label: "Home", href: "/" },
-    { label: "About", href: "/#about" },
-    { label: "Contact", href: "/#contact" },
-  ];
-});
-
-const showCart = computed(() => props.config.template === "ecommerce");
-const secondaryCta = computed(() => {
-  if (
-    props.config.template === "landing" ||
-    props.config.template === "company"
-  ) {
-    return { label: "Contact Us", href: "/#contact" };
-  }
-  return null;
-});
 </script>
 
 <template>
