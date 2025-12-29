@@ -448,13 +448,32 @@ defineExpose({ focusField });
         </div>
       </div>
 
-      <!-- Variant Selector -->
       <div v-if="'variant' in selectedSection">
         <label
-          class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-1"
-          >Variant</label
+          class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 block mb-2"
+          >Layout Variant</label
         >
+        <div
+          v-if="selectedSection.type === 'hero'"
+          class="grid grid-cols-2 gap-2"
+        >
+          <button
+            v-for="v in ['center', 'split', 'right', 'glass', 'terminal']"
+            :key="v"
+            @click="updateField('variant', v)"
+            class="px-3 py-2 text-[10px] uppercase font-bold tracking-wider rounded-lg border transition-all"
+            :class="
+              (selectedSection as any).variant === v ||
+              (!(selectedSection as any).variant && v === 'center')
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20'
+                : 'bg-slate-900/50 border-white/10 text-slate-400 hover:text-white hover:border-white/20'
+            "
+          >
+            {{ v }}
+          </button>
+        </div>
         <input
+          v-else
           :value="(selectedSection as any).variant"
           @input="e => updateField('variant', (e.target as HTMLInputElement).value)"
           class="w-full rounded-lg bg-slate-900/80 px-3 py-2 text-sm text-white ring-1 ring-white/10 focus:ring-indigo-500"

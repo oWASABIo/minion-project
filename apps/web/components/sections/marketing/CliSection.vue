@@ -18,7 +18,13 @@ const copyCommand = (cmd: string) => {
 </script>
 
 <template>
-  <section class="py-24 px-6 bg-slate-950 relative overflow-hidden">
+  <section
+    class="px-6 bg-slate-950 relative overflow-hidden"
+    :style="{
+      paddingTop: 'var(--section-spacing, 6rem)',
+      paddingBottom: 'var(--section-spacing, 6rem)',
+    }"
+  >
     <!-- Glow Effects -->
     <div
       class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"
@@ -67,11 +73,13 @@ const copyCommand = (cmd: string) => {
       <div class="relative group">
         <!-- Glow Back -->
         <div
-          class="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-1000"
+          class="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 blur opacity-20 group-hover:opacity-40 transition duration-1000"
+          :style="{ borderRadius: 'var(--radius-ui, 0.75rem)' }"
         ></div>
 
         <div
-          class="relative rounded-xl border border-white/10 bg-black/90 shadow-2xl overflow-hidden font-mono text-sm leading-relaxed"
+          class="relative border border-white/10 bg-black/90 shadow-2xl overflow-hidden font-mono text-sm leading-relaxed"
+          :style="{ borderRadius: 'var(--radius-ui, 0.75rem)' }"
         >
           <!-- Title Bar -->
           <div

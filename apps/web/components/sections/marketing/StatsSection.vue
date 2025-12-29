@@ -7,7 +7,13 @@ defineProps<{
 </script>
 
 <template>
-  <section class="py-24 px-6">
+  <section
+    class="px-6"
+    :style="{
+      paddingTop: 'var(--section-spacing, 6rem)',
+      paddingBottom: 'var(--section-spacing, 6rem)',
+    }"
+  >
     <div v-if="section.title" class="text-center mb-16 px-6">
       <h2
         class="text-sm font-bold uppercase tracking-[0.2em] text-primary"
@@ -34,7 +40,7 @@ defineProps<{
           class="p-8 transition-all relative overflow-hidden group"
           :class="
             section.variant === 'card'
-              ? 'rounded-3xl border hover:shadow-lg hover:-translate-y-1'
+              ? 'border hover:shadow-lg hover:-translate-y-1'
               : ''
           "
           :style="
@@ -43,6 +49,7 @@ defineProps<{
                   backgroundColor: 'var(--bg-card)',
                   borderColor: 'var(--border-color)',
                   boxShadow: 'var(--shadow-card)',
+                  borderRadius: 'var(--radius-ui, 1.5rem)',
                 }
               : {}
           "

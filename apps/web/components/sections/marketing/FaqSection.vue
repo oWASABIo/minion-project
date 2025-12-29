@@ -7,7 +7,13 @@ const props = defineProps<{
 </script>
 
 <template>
-  <section class="py-24 px-6">
+  <section
+    class="px-6"
+    :style="{
+      paddingTop: 'var(--section-spacing, 6rem)',
+      paddingBottom: 'var(--section-spacing, 6rem)',
+    }"
+  >
     <div class="mx-auto max-w-3xl">
       <h2
         class="text-3xl font-bold tracking-tight text-center md:text-4xl mb-12 transition-colors"
@@ -21,15 +27,19 @@ const props = defineProps<{
         <details
           v-for="(item, index) in section.items"
           :key="index"
-          class="group rounded-2xl border [&_summary::-webkit-details-marker]:hidden transition-all duration-300 open:shadow-md"
+          class="group border [&_summary::-webkit-details-marker]:hidden transition-all duration-300 open:shadow-md"
           :style="{
             backgroundColor: 'var(--bg-card)',
             borderColor: 'var(--border-color)',
+            borderRadius: 'var(--radius-ui, 1rem)',
           }"
         >
           <summary
-            class="flex cursor-pointer items-center justify-between gap-1.5 p-6 font-medium transition-colors hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl group-open:rounded-b-none group-open:bg-slate-50 dark:group-open:bg-white/5"
-            style="color: var(--text-primary)"
+            class="flex cursor-pointer items-center justify-between gap-1.5 p-6 font-medium transition-colors hover:bg-slate-50 dark:hover:bg-white/5 group-open:rounded-b-none group-open:bg-slate-50 dark:group-open:bg-white/5"
+            :style="{
+              color: 'var(--text-primary)',
+              borderRadius: 'var(--radius-ui, 1rem)',
+            }"
           >
             <h3
               class="text-lg"

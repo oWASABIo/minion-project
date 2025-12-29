@@ -7,7 +7,13 @@ const props = defineProps<{
 </script>
 
 <template>
-  <section class="py-24 px-6 overflow-hidden">
+  <section
+    class="px-6 overflow-hidden"
+    :style="{
+      paddingTop: 'var(--section-spacing, 6rem)',
+      paddingBottom: 'var(--section-spacing, 6rem)',
+    }"
+  >
     <div class="mx-auto max-w-5xl">
       <h2
         class="text-3xl font-bold tracking-tight text-center sm:text-4xl mb-12 transition-colors"
@@ -28,15 +34,12 @@ const props = defineProps<{
         <figure
           v-for="(item, index) in section.items"
           :key="index"
-          :class="
-            section.variant === 'slider'
-              ? 'min-w-[320px] snap-center rounded-2xl border p-8 shadow-sm hover:shadow-md transition-all backdrop-blur-sm'
-              : 'rounded-2xl border p-8 shadow-sm hover:shadow-md transition-all backdrop-blur-sm flex flex-col justify-between'
-          "
+          class="border p-8 shadow-sm hover:shadow-md transition-all backdrop-blur-sm flex flex-col justify-between"
           :style="{
             backgroundColor: 'var(--bg-card)',
             borderColor: 'var(--border-color)',
             boxShadow: 'var(--shadow-card)',
+            borderRadius: 'var(--radius-ui, 1rem)',
           }"
         >
           <blockquote

@@ -45,6 +45,27 @@ function applyExample(ex: PromptExample) {
   // Stack is not part of PromptExample currently
   // if (ex.stack) generation.value.stack = ex.stack;
 }
+
+function updateDesignToken(key: "borderRadius" | "spacing", value: number) {
+  // 1. Update transient generation state
+  (generation.value as any)[key] = value;
+
+  // 2. Broadcast to all project pages if active
+  if (store.projectConfig) {
+    const newConfig = { ...store.projectConfig };
+    newConfig.site = { ...newConfig.site, [key]: value } as any;
+
+    if (newConfig.pages) {
+      Object.keys(newConfig.pages).forEach((k) => {
+        newConfig.pages[k].site = {
+          ...newConfig.pages[k].site,
+          [key]: value,
+        } as any;
+      });
+    }
+    store.updateProjectConfig(newConfig);
+  }
+}
 </script>
 
 <template>
@@ -97,6 +118,89 @@ function applyExample(ex: PromptExample) {
         label="WP Rest Base"
         placeholder="/wp-json/wp/v2"
       />
+    </div>
+
+    <!-- Global Design System Tokens -->
+    <div class="space-y-4">
+      <h4
+        class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500"
+      >
+        Design System
+      </h4>
+      <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-semibold text-slate-400 uppercase"
+              >Radius</label
+            >
+            <div class="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                max="32"
+                :value="
+                  store.projectConfig
+                    ? (store.projectConfig.site as any).borderRadius ?? 16
+                    : generation.borderRadius
+                "
+                @input="e => updateDesignToken('borderRadius', Number((e.target as HTMLInputElement).value))"
+                class="w-10 bg-white/5 border border-white/10 rounded px-1 py-0.5 text-[10px] font-mono text-indigo-400 text-right focus:outline-none focus:border-indigo-500/50"
+              />
+              <span class="text-[9px] text-slate-500 font-medium uppercase"
+                >px</span
+              >
+            </div>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="32"
+            step="1"
+            :value="
+              store.projectConfig
+                ? (store.projectConfig.site as any).borderRadius ?? 16
+                : generation.borderRadius
+            "
+            @input="e => updateDesignToken('borderRadius', Number((e.target as HTMLInputElement).value))"
+            class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+          />
+        </div>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-semibold text-slate-400 uppercase"
+              >Spacing</label
+            >
+            <div class="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                max="10"
+                :value="
+                  store.projectConfig
+                    ? (store.projectConfig.site as any).spacing ?? 5
+                    : generation.spacing
+                "
+                @input="e => updateDesignToken('spacing', Number((e.target as HTMLInputElement).value))"
+                class="w-8 bg-white/5 border border-white/10 rounded px-1 py-0.5 text-[10px] font-mono text-emerald-400 text-right focus:outline-none focus:border-emerald-500/50"
+              />
+              <span class="text-[9px] text-slate-500 font-medium ml-1">UI</span>
+            </div>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="10"
+            step="1"
+            :value="
+              store.projectConfig
+                ? (store.projectConfig.site as any).spacing ?? 5
+                : generation.spacing
+            "
+            @input="e => updateDesignToken('spacing', Number((e.target as HTMLInputElement).value))"
+            class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- Brief Input (Card Style Match: Explore Templates) -->

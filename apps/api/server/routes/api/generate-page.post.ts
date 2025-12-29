@@ -16,6 +16,8 @@ type Body = {
   wordpressBaseUrl?: string;
   wordpressRestBase?: string;
   stream?: boolean;
+  spacing?: number;
+  borderRadius?: number;
 };
 
 export default defineEventHandler(async (event) => {
@@ -29,6 +31,10 @@ export default defineEventHandler(async (event) => {
 
     const wordpressBaseUrl = (body.wordpressBaseUrl || "").toString().trim();
     const wordpressRestBase = (body.wordpressRestBase || "").toString().trim();
+
+    const spacing = typeof body.spacing === "number" ? body.spacing : undefined;
+    const borderRadius =
+      typeof body.borderRadius === "number" ? body.borderRadius : undefined;
 
     // ✅ Seed logic
     let seed = typeof body.seed === "number" ? body.seed : undefined;
@@ -129,8 +135,6 @@ export default defineEventHandler(async (event) => {
         note = "Live OK (Service Oriented)";
       } else {
         finalMode = "blueprint";
-        note =
-          !hasKey && wantLive ? "Fallback: No API Key" : "Blueprint Requested";
         finalProject = buildMockProject({
           template,
           brief: cleanBrief || briefRaw,
@@ -138,6 +142,8 @@ export default defineEventHandler(async (event) => {
           seed: seed!,
           wordpressBaseUrl,
           wordpressRestBase,
+          spacing,
+          borderRadius,
         });
       }
     } catch (e: any) {
@@ -151,6 +157,8 @@ export default defineEventHandler(async (event) => {
         seed: seed!,
         wordpressBaseUrl,
         wordpressRestBase,
+        spacing,
+        borderRadius,
       });
     }
 

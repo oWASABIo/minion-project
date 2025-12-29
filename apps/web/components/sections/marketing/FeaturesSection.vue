@@ -7,7 +7,13 @@ const props = defineProps<{
 </script>
 
 <template>
-  <section class="py-16 px-6">
+  <section
+    class="px-6"
+    :style="{
+      paddingTop: 'var(--section-spacing, 4rem)',
+      paddingBottom: 'var(--section-spacing, 4rem)',
+    }"
+  >
     <div class="mx-auto max-w-5xl">
       <div class="mx-auto max-w-3xl text-center mb-16">
         <h2
@@ -41,7 +47,7 @@ const props = defineProps<{
           :class="
             section.variant === 'grid'
               ? 'space-y-3'
-              : 'rounded-xl border p-8 shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 hover:border-indigo-500/30 hover:-translate-y-1 transition-all duration-300 group'
+              : 'border p-8 shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 hover:border-indigo-500/30 hover:-translate-y-1 transition-all duration-300 group'
           "
           :style="
             section.variant !== 'grid'
@@ -49,6 +55,7 @@ const props = defineProps<{
                   backgroundColor: 'var(--bg-card)',
                   borderColor: 'var(--border-color)',
                   boxShadow: 'var(--shadow-card)',
+                  borderRadius: 'var(--radius-ui, 0.75rem)',
                 }
               : {}
           "

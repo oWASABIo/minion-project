@@ -277,6 +277,8 @@ async function createProject() {
         wordpressBaseUrl: store.generation.wordpressBaseUrl,
         wordpressRestBase: store.generation.wordpressRestBase,
         stream: isStream,
+        spacing: store.generation.spacing,
+        borderRadius: store.generation.borderRadius,
       }),
     });
 
