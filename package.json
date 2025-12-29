@@ -8,7 +8,7 @@
   "scripts": {
     "dev:web": "npm run dev --workspace=@minions/web",
     "dev:api": "npm run dev --workspace=@minions/api",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspace=@minions/shared && npm run build --workspace=@minions/web",
     "build:cf": "npm run build --workspace=@minions/shared && npm run build --workspace=@minions/web",
     "build:api": "npm run build:cf --workspace=@minions/api",
     "deploy:api": "cd apps/api && npx wrangler deploy .output/server/index.mjs --assets .output/public --env dev",
