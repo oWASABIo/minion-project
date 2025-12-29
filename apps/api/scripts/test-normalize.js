@@ -26,7 +26,7 @@ const testInput = {
   template: "landing",
   sections: [
     {
-      type: "bloglist",
+      type: "blogList",
       id: "blog-1",
       content: {
         title: "My Blog",

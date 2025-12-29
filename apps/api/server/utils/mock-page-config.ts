@@ -265,7 +265,7 @@ export function buildMockConfigFromTemplate(
       : "You’re viewing a mock preview tailored to your brief",
   });
 
-  const blog = findFirstSection(cfg as any, "bloglist");
+  const blog = findFirstSection(cfg as any, "blogList");
   if (blog) {
     setIfExists(
       blog,

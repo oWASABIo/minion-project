@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { PageConfig } from "~/types/landing";
+import type { PageConfig } from "@minions/shared";
+import { useNavigation } from "~/composables/useNavigation";
 
 const props = defineProps<{
   config: PageConfig;
 }>();
 
+const { siteName, menuItems } = useNavigation(computed(() => props.config));
 const year = new Date().getFullYear();
-const siteName = computed(() => props.config.site?.siteName || "Company");
 </script>
 
 <template>
@@ -29,16 +30,17 @@ const siteName = computed(() => props.config.site?.siteName || "Company");
       <nav
         class="flex flex-wrap justify-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300"
       >
+        <NuxtLink
+          v-for="item in menuItems"
+          :key="item.href"
+          :to="item.href"
+          class="hover:text-primary transition-colors"
+        >
+          {{ item.label }}
+        </NuxtLink>
         <NuxtLink to="/docs" class="hover:text-primary transition-colors"
           >Documentation</NuxtLink
         >
-        <a href="#" class="hover:text-primary transition-colors"
-          >Privacy Policy</a
-        >
-        <a href="#" class="hover:text-primary transition-colors"
-          >Terms of Service</a
-        >
-        <a href="#" class="hover:text-primary transition-colors">Contact</a>
       </nav>
     </div>
   </footer>

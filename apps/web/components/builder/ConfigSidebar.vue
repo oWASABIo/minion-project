@@ -45,27 +45,6 @@ function applyExample(ex: PromptExample) {
   // Stack is not part of PromptExample currently
   // if (ex.stack) generation.value.stack = ex.stack;
 }
-
-function updateDesignToken(key: "borderRadius" | "spacing", value: number) {
-  // 1. Update transient generation state
-  (generation.value as any)[key] = value;
-
-  // 2. Broadcast to all project pages if active
-  if (store.projectConfig) {
-    const newConfig = { ...store.projectConfig };
-    newConfig.site = { ...newConfig.site, [key]: value } as any;
-
-    if (newConfig.pages) {
-      Object.keys(newConfig.pages).forEach((k) => {
-        newConfig.pages[k].site = {
-          ...newConfig.pages[k].site,
-          [key]: value,
-        } as any;
-      });
-    }
-    store.updateProjectConfig(newConfig);
-  }
-}
 </script>
 
 <template>
@@ -143,7 +122,11 @@ function updateDesignToken(key: "borderRadius" | "spacing", value: number) {
                     ? (store.projectConfig.site as any).borderRadius ?? 16
                     : generation.borderRadius
                 "
-                @input="e => updateDesignToken('borderRadius', Number((e.target as HTMLInputElement).value))"
+                @input="e => {
+                  const val = Number((e.target as HTMLInputElement).value);
+                  generation.borderRadius = val;
+                  store.updateGlobalSiteConfig({ borderRadius: val });
+                }"
                 class="w-10 bg-white/5 border border-white/10 rounded px-1 py-0.5 text-[10px] font-mono text-indigo-400 text-right focus:outline-none focus:border-indigo-500/50"
               />
               <span class="text-[9px] text-slate-500 font-medium uppercase"
@@ -161,7 +144,11 @@ function updateDesignToken(key: "borderRadius" | "spacing", value: number) {
                 ? (store.projectConfig.site as any).borderRadius ?? 16
                 : generation.borderRadius
             "
-            @input="e => updateDesignToken('borderRadius', Number((e.target as HTMLInputElement).value))"
+            @input="e => {
+              const val = Number((e.target as HTMLInputElement).value);
+              generation.borderRadius = val;
+              store.updateGlobalSiteConfig({ borderRadius: val });
+            }"
             class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
           />
         </div>
@@ -180,7 +167,11 @@ function updateDesignToken(key: "borderRadius" | "spacing", value: number) {
                     ? (store.projectConfig.site as any).spacing ?? 5
                     : generation.spacing
                 "
-                @input="e => updateDesignToken('spacing', Number((e.target as HTMLInputElement).value))"
+                @input="e => {
+                  const val = Number((e.target as HTMLInputElement).value);
+                  generation.spacing = val;
+                  store.updateGlobalSiteConfig({ spacing: val });
+                }"
                 class="w-8 bg-white/5 border border-white/10 rounded px-1 py-0.5 text-[10px] font-mono text-emerald-400 text-right focus:outline-none focus:border-emerald-500/50"
               />
               <span class="text-[9px] text-slate-500 font-medium ml-1">UI</span>
@@ -196,7 +187,11 @@ function updateDesignToken(key: "borderRadius" | "spacing", value: number) {
                 ? (store.projectConfig.site as any).spacing ?? 5
                 : generation.spacing
             "
-            @input="e => updateDesignToken('spacing', Number((e.target as HTMLInputElement).value))"
+            @input="e => {
+              const val = Number((e.target as HTMLInputElement).value);
+              generation.spacing = val;
+              store.updateGlobalSiteConfig({ spacing: val });
+            }"
             class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
           />
         </div>
