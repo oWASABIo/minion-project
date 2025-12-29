@@ -24,7 +24,7 @@ export const useBuilderStore = defineStore("builder", {
     generation: {
       template: "landing" as string,
       stack: "nuxt" as string,
-      mode: "auto" as "auto" | "mock" | "live",
+      mode: "auto" as "auto" | "blueprint" | "live",
       brief: "" as string,
       wordpressBaseUrl: "" as string,
       wordpressRestBase: "/wp-json/wp/v2" as string,

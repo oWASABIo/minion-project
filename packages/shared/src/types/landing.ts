@@ -9,7 +9,7 @@ export type Pagetemplate =
   | "saas"
   | string;
 
-export type Mode = "mock" | "live";
+export type Mode = "mock" | "live" | "blueprint";
 
 export type Stack = "nuxt" | "wordpress-theme" | "nextjs" | string;
 

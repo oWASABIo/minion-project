@@ -112,7 +112,7 @@ export function buildMockProject(opts: {
     },
     pages,
     meta: {
-      mode: "mock",
+      mode: "blueprint",
       generatedAt: new Date().toISOString(),
       seed,
       stack,
@@ -254,7 +254,7 @@ export function buildMockPageConfig(opts: {
     },
     sections,
     meta: {
-      mode: "mock",
+      mode: "blueprint",
       generatedAt: new Date().toISOString(),
       seed,
       stack,
@@ -287,15 +287,12 @@ function mockHero(ctx: MockCtx) {
     id: "hero-main",
     type: "hero",
     variant,
-    eyebrow: `${ctx.stackSpec.label} Concept`.toUpperCase(),
-    headline:
-      variant === "split"
-        ? `Your Idea: ${ctx.siteName}`
-        : `Build ${ctx.siteName} with ${ctx.stackSpec.label}`,
+    eyebrow: `${ctx.stackSpec.label} Blueprint`.toUpperCase(),
+    headline: `Project Blueprint: ${ctx.siteName}`,
     subheadline:
-      "This is a mock generated based on your brief, seed, and selected stack constraints.",
-    primaryCta: { label: "Generate (Live)", href: "#get-started" },
-    secondaryCta: { label: "Learn More", href: "#examples" },
+      "This is a wireframe layout for your project. Switch to 'Live' mode and use AI Generate to create high-quality content.",
+    primaryCta: { label: "Main Action", href: "#" },
+    secondaryCta: { label: "Secondary Action", href: "#" },
   };
 }
 
@@ -310,16 +307,16 @@ function mockFeatures(ctx: MockCtx) {
     subtitle: `Optimized for ${ctx.stackSpec.label} architecture.`,
     items: [
       {
-        title: "Stack Optimized",
-        description: `Generated specifically for ${ctx.stack} conventions.`,
+        title: "Feature Component",
+        description: "Focus: Layout and hierarchy planning.",
       },
       {
-        title: "Deterministic Mock",
-        description: `Same seed (${ctx.seed}) = Same result.`,
+        title: "Blueprint Slot",
+        description: "Placeholder for your specific features.",
       },
       {
-        title: "Customizable",
-        description: "Edit brief to change the tone/content keywords.",
+        title: "Interactive Flow",
+        description: "Verify your user journey here.",
       },
     ],
   };
@@ -332,14 +329,9 @@ function mockTestimonials(ctx: MockCtx) {
     title: "Testimonials",
     items: [
       {
-        quote: `The ${ctx.stack} output structure is exactly what I needed.`,
-        name: "Alex",
-        role: "Developer",
-      },
-      {
-        quote: "Mock generation is super fast and consistent.",
-        name: "Sarah",
-        role: "Product Manager",
+        quote: "This is a placeholder for customer feedback.",
+        name: "Customer Name",
+        role: "Job Title",
       },
     ],
   };
@@ -485,10 +477,9 @@ function mockCta(ctx: MockCtx) {
   return {
     id: "cta-bottom",
     type: "cta",
-    title: "Ready to launch?",
-    headline: "Start building today",
-    subheadline: `Get your ${ctx.stackSpec.label} starter kit now.`,
-    primaryCta: { label: "Get Started", href: "#get-started" },
+    headline: "Blueprint Finish",
+    subheadline: "Your final call to action goes here.",
+    primaryCta: { label: "Button Label", href: "#" },
   };
 }
 

@@ -5,7 +5,7 @@ type Opts = {
   template: string;
   stack: string;
   seed: number;
-  mode: "mock" | "live";
+  mode: "mock" | "live" | "blueprint";
   wordpressBaseUrl?: string;
   wordpressRestBase?: string;
 };
@@ -121,8 +121,11 @@ export function normalizePageConfig(input: any, opts: Opts): PageConfig {
       }
 
       // ✅ Phase 9: Inject Hero Image
-      if (!merged.image) {
-        merged.image = `https://picsum.photos/seed/${opts.seed + i}/800/600`;
+      if (!merged.image || opts.mode === "blueprint") {
+        merged.image =
+          opts.mode === "blueprint"
+            ? "/images/placeholder-wireframe.png"
+            : `https://picsum.photos/seed/${opts.seed + i}/800/600`;
       }
     }
 
@@ -150,10 +153,12 @@ export function normalizePageConfig(input: any, opts: Opts): PageConfig {
             name: toStr(it?.name) || "",
             role: toStr(it?.role) || undefined,
             avatar:
-              it?.avatar ||
-              `https://api.dicebear.com/7.x/avataaars/svg?seed=${toStr(
-                it?.name
-              )}`,
+              opts.mode === "blueprint"
+                ? "/images/placeholder-avatar.png"
+                : it?.avatar ||
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${toStr(
+                    it?.name
+                  )}`,
           }))
         : [];
     }
@@ -174,10 +179,12 @@ export function normalizePageConfig(input: any, opts: Opts): PageConfig {
         bio: toStr(it?.bio),
         // ✅ Phase 9: Inject Avatar
         avatar:
-          toStr(it?.avatar) ||
-          `https://api.dicebear.com/7.x/avataaars/svg?seed=${
-            toStr(it?.name) || opts.seed + i + midx
-          }`,
+          opts.mode === "blueprint"
+            ? "/images/placeholder-avatar.png"
+            : toStr(it?.avatar) ||
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+                toStr(it?.name) || opts.seed + i + midx
+              }`,
         socials: it?.socials || {},
       }));
     }

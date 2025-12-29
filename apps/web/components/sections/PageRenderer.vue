@@ -21,6 +21,7 @@ import TeamSection from "~/components/sections/marketing/TeamSection.vue";
 import ProductListSection from "~/components/sections/ecommerce/ProductListSection.vue";
 import ProductDetailSection from "~/components/sections/ecommerce/ProductDetailSection.vue";
 import CliSection from "~/components/sections/marketing/CliSection.vue";
+import "~/assets/css/blueprint.css";
 
 const props = withDefaults(
   defineProps<{
@@ -163,7 +164,15 @@ watch(
 );
 
 const isDark = computed(() => {
+  if (isBlueprint.value) return false; // Force light mode for blueprints
   return props.config?.site?.themeMode !== "light";
+});
+
+const isBlueprint = computed(() => {
+  return (
+    (props.config as any)?.mode === "blueprint" ||
+    props.config?.meta?.mode === "blueprint"
+  );
 });
 
 // DEBUG: Log full sections to troubleshoot content keys
@@ -220,7 +229,12 @@ useHead(() => ({
 }));
 
 const themeStyle = computed(() => {
-  const bgBase = isDark.value ? "#020617" : "#f8fafc"; // slate-950 vs slate-50
+  if (isBlueprint.value) {
+    return {
+      background: "var(--bg-page)",
+      fontFamily: "'JetBrains Mono', monospace",
+    } as any;
+  }
 
   return {
     background: `radial-gradient(1000px circle at 20% 0%, ${accent.value}${
@@ -256,7 +270,7 @@ const themeStyle = computed(() => {
 <template>
   <div
     class="min-h-screen transition-colors duration-300 text-slate-900 dark:text-slate-50 flex flex-col bg-white dark:bg-slate-950"
-    :class="{ dark: isDark }"
+    :class="{ dark: isDark, 'is-blueprint': isBlueprint }"
     :style="themeStyle"
   >
     <GeneratedHeader v-if="headerMode === 'generated'" :config="config" />

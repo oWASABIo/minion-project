@@ -1,0 +1,97 @@
+/* Wireframe / Blueprint Aesthetic */
+.is-blueprint {
+  --accent: #64748b !important;
+  --text-primary: #1e293b !important;
+  --text-secondary: #64748b !important;
+  --bg-page: #ffffff !important;
+  --bg-subtle: #f8fafc !important;
+  --bg-card: #ffffff !important;
+  --border-color: #000000 !important; /* Sharp black lines for blueprints */
+  --shadow-card: none !important;
+
+  background-color: #ffffff !important;
+  background-image: radial-gradient(#e5e7eb 1px, transparent 1px) !important;
+  background-size: 20px 20px !important;
+  color: #000000 !important;
+  font-family: "JetBrains Mono", monospace !important;
+}
+
+/* Force light mode style for blueprints to keep them clean */
+.is-blueprint .section-bg,
+.is-blueprint section,
+.is-blueprint main {
+  background-color: transparent !important;
+  border-bottom: 2px solid #000000 !important;
+}
+
+.is-blueprint img,
+.is-blueprint .aspect-video,
+.is-blueprint .aspect-square {
+  filter: grayscale(100%) contrast(0.5) brightness(1.2) !important;
+  opacity: 0.3 !important;
+  border: 2px dashed #000000 !important;
+  background-color: #f1f5f9 !important;
+  border-radius: 0px !important;
+  position: relative;
+}
+
+/* Blueprint text blocks */
+.is-blueprint h1,
+.is-blueprint h2,
+.is-blueprint h3,
+.is-blueprint h4,
+.is-blueprint p,
+.is-blueprint span,
+.is-blueprint div:not(.grid):not(.flex) {
+  color: #000000 !important;
+}
+
+.is-blueprint h1,
+.is-blueprint h2,
+.is-blueprint h3 {
+  text-transform: uppercase !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Sketchy Button Effect */
+.is-blueprint button,
+.is-blueprint .btn,
+.is-blueprint a {
+  background-color: #ffffff !important;
+  border: 2px solid #000000 !important;
+  color: #000000 !important;
+  box-shadow: 4px 4px 0px #000000 !important;
+  border-radius: 0px !important;
+  text-transform: uppercase !important;
+  font-weight: bold !important;
+}
+
+.is-blueprint .bg-indigo-600,
+.is-blueprint .bg-indigo-500,
+.is-blueprint .bg-primary {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Skeleton / Wireframe Text */
+.is-blueprint .skeleton-mock {
+  background-color: #000000 !important;
+  opacity: 0.1;
+}
+
+/* Borders and Surfaces */
+.is-blueprint .rounded-2xl,
+.is-blueprint .rounded-xl,
+.is-blueprint .rounded-lg,
+.is-blueprint .rounded-md {
+  border-radius: 0px !important;
+  border: 2px solid #000000 !important;
+}
+
+.is-blueprint .shadow-xl,
+.is-blueprint .shadow-lg,
+.is-blueprint .shadow-md,
+.is-blueprint .shadow-sm {
+  box-shadow: none !important;
+}

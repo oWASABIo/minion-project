@@ -10,7 +10,7 @@ import { useRuntimeConfig } from "nitropack/runtime";
 type Body = {
   template?: string;
   brief?: string;
-  mode?: "auto" | "mock" | "live";
+  mode?: "auto" | "blueprint" | "live";
   stack?: string;
   seed?: number;
   wordpressBaseUrl?: string;
@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
     // MAIN LOGIC
     // -------------------------
     let finalProject: any = null;
-    let finalMode: "mock" | "live" = "mock";
+    let finalMode: "blueprint" | "live" = "blueprint";
     let note = "";
 
     try {
@@ -128,8 +128,9 @@ export default defineEventHandler(async (event) => {
         finalProject = result;
         note = "Live OK (Service Oriented)";
       } else {
-        finalMode = "mock";
-        note = !hasKey && wantLive ? "Fallback: No API Key" : "Mock Requested";
+        finalMode = "blueprint";
+        note =
+          !hasKey && wantLive ? "Fallback: No API Key" : "Blueprint Requested";
         finalProject = buildMockProject({
           template,
           brief: cleanBrief || briefRaw,
@@ -141,8 +142,8 @@ export default defineEventHandler(async (event) => {
       }
     } catch (e: any) {
       console.error("Selection/Generation error:", e);
-      finalMode = "mock";
-      note = `Error: ${e.message}. Falling back to mock.`;
+      finalMode = "blueprint";
+      note = `Error: ${e.message}. Falling back to blueprint.`;
       finalProject = buildMockProject({
         template,
         brief: cleanBrief || briefRaw,
