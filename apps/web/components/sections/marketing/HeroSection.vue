@@ -47,7 +47,7 @@ const isCenter = computed(() => props.section.variant !== "split");
           {{ section.eyebrow }}
         </div>
         <h1
-          class="text-4xl font-bold tracking-tight md:text-6xl lg:text-7xl transition-colors"
+          class="text-4xl font-bold tracking-tight md:text-5xl lg:text-5xl transition-colors"
           :class="section.variant === 'glass' ? 'text-white' : ''"
           :style="
             section.variant !== 'glass' ? { color: 'var(--text-primary)' } : {}

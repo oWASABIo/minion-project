@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { pageConfig } from "../data/landing-data";
-import PageRenderer from "~/components/sections/PageRenderer.vue";
+import StaticPageRenderer from "~/components/sections/StaticPageRenderer.vue";
 </script>
 
 <template>
-  <PageRenderer :config="pageConfig" headerMode="app" />
+  <StaticPageRenderer :config="pageConfig" headerMode="app" />
 </template>

@@ -60,16 +60,21 @@ const spacingClass = computed(() => {
 <template>
   <section
     :id="section.id"
-    class="relative group transition-all duration-300 border-2 border-transparent"
+    class="relative transition-all duration-300"
     :class="[
-      isSelected ? '!border-indigo-500 z-10' : 'hover:border-indigo-500/30',
+      isEditMode ? 'group border-2' : '',
+      isEditMode && isSelected
+        ? '!border-indigo-500 z-10'
+        : isEditMode
+        ? 'border-transparent hover:border-indigo-500/30'
+        : '',
       spacingClass,
     ]"
     :style="wrapperStyle"
     :data-sb-section-id="section.id"
-    @click.stop="$emit('select', section.id)"
+    @click.stop="isEditMode ? $emit('select', section.id) : null"
   >
-    <!-- Edit Label (Center Top) -->
+    <!-- Edit Label (Center Top) - Only show in Edit Mode -->
     <div
       v-if="isEditMode"
       class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-lg pointer-events-none z-20 whitespace-nowrap"
