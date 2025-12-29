@@ -1,7 +1,7 @@
-import { serverSupabaseClient } from "#supabase/server";
-import type { Database } from "~/types/database.types";
+import { createClient } from "@supabase/supabase-js";
 
 export default defineEventHandler(async (event) => {
+  const config = useRuntimeConfig(event);
   const body = await readBody(event);
   const { projectId, eventType, metadata } = body;
 
@@ -12,12 +12,14 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const client = await serverSupabaseClient<Database>(event);
+  // Initialize Supabase Client (using service role for tracking - no auth required)
+  const supabase = createClient(
+    config.SUPABASE_URL || process.env.SUPABASE_URL,
+    config.SUPABASE_KEY || process.env.SUPABASE_KEY
+  );
 
-  // Simple Fire-and-Forget insert
-  // We use '@ts-ignore' because the table might not exist in types yet until migration is run & types regenerated
-  // @ts-ignore
-  const { error } = await client.from("analytics_events").insert({
+  // Simple Fire-and-Forget insert (public tracking endpoint)
+  const { error } = await supabase.from("analytics_events").insert({
     project_id: projectId,
     event_type: eventType,
     metadata: metadata || {},
