@@ -37,7 +37,7 @@ const templates = [
   "portfolio",
 ];
 const stacks = ["nuxt", "vue-vite", "wordpress-theme", "nextjs"];
-const modeOptions = ["auto", "mock", "live"] as const;
+const modeOptions = ["auto", "blueprint", "live"] as const;
 
 function applyExample(ex: PromptExample) {
   generation.value.brief = ex.brief;
@@ -65,11 +65,19 @@ function applyExample(ex: PromptExample) {
           <BaseButton
             v-for="m in modeOptions"
             :key="m"
-            @click="!user && m !== 'mock' ? null : (generation.mode = m)"
+            @click="!user && m !== 'blueprint' ? null : (generation.mode = m)"
             size="xs"
             :variant="generation.mode === m ? 'primary' : 'secondary'"
-            :disabled="!user && m !== 'mock'"
-            :title="!user && m !== 'mock' ? 'Login required for AI Mode' : ''"
+            :disabled="!user && m !== 'blueprint'"
+            :title="
+              !user && m !== 'blueprint'
+                ? 'Login required for AI Mode'
+                : m === 'blueprint'
+                ? 'Generate a wireframe layout to plan structure'
+                : m === 'live'
+                ? 'Generate high-quality content using AI'
+                : 'Auto-select mode based on input'
+            "
           >
             {{ m }}
           </BaseButton>
@@ -160,7 +168,11 @@ function applyExample(ex: PromptExample) {
         size="md"
         class="min-w-[140px]"
       >
-        Generate Project
+        {{
+          generation.mode === "blueprint"
+            ? "Generate Blueprint"
+            : "Generate Project"
+        }}
       </BaseButton>
     </div>
 

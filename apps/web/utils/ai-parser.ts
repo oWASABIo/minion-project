@@ -16,7 +16,7 @@ export function parseAIResponse(rawText: string): ProjectConfig {
       template: rawJson.template || "landing",
       stack: rawJson.meta?.stack || "nuxt",
       seed: rawJson.meta?.seed || Date.now(),
-      mode: "live",
+      mode: rawJson.meta?.mode || "live",
     });
   } catch (err: any) {
     console.error("[AI Parser] Failed:", err);

@@ -70,7 +70,7 @@ type template = (typeof templates)[number];
 const stacks = ["nuxt", "vue-vite", "wordpress-theme", "nextjs"] as const;
 type Stack = (typeof stacks)[number];
 
-const modeOptions = ["auto", "mock", "live"] as const;
+const modeOptions = ["auto", "blueprint", "live"] as const;
 type Mode = (typeof modeOptions)[number];
 
 // DEPRECATED local state: templateType, stack, mode, etc. replaced by store.generation
@@ -156,7 +156,7 @@ watch(
   user,
   (u) => {
     if (!u) {
-      store.generation.mode = "mock";
+      store.generation.mode = "blueprint";
     } else {
       store.generation.mode = "auto";
     }
