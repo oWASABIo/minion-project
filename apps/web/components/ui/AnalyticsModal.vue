@@ -18,18 +18,38 @@ const emit = defineEmits<{
   (e: "close"): void;
 }>();
 
+const supabase = useSupabaseClient();
 const loading = ref(true);
 const stats = ref<any>(null);
 
 const insights = ref<string | null>(null);
 const insightsLoading = ref(false);
 
+async function getAuthToken() {
+  const session = await supabase.auth.getSession();
+  return session?.data.session?.access_token;
+}
+
 async function fetchStats() {
   if (!props.projectId) return;
   loading.value = true;
   insights.value = null; // Reset insights on new load
   try {
-    const data = await $fetch(`/api/analytics/${props.projectId}/stats`);
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("No auth token available");
+      loading.value = false;
+      return;
+    }
+
+    const data = await $fetch(
+      `/api/analytics/${encodeURIComponent(props.projectId)}/stats`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
     stats.value = data;
   } catch (e) {
     console.error("Failed to fetch analytics:", e);
@@ -42,10 +62,20 @@ async function fetchInsights() {
   if (!props.projectId) return;
   insightsLoading.value = true;
   try {
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("No auth token available");
+      insightsLoading.value = false;
+      return;
+    }
+
     const data = await $fetch<{ insights: string }>(
-      `/api/analytics/${props.projectId}/insights`,
+      `/api/analytics/${encodeURIComponent(props.projectId)}/insights`,
       {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
     // Simple markdown cleanup (remove ** for cleaner plain text view if not using markdown render)

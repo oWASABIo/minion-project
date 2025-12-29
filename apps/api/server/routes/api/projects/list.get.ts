@@ -2,18 +2,14 @@ import { useSupabaseAuth } from "../../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await useSupabaseAuth(event);
-  const body = await readBody(event);
 
-  // Insert Project
+  // Fetch Projects for User
+  // Use order by updated_at desc for recent first
   const { data, error } = await supabase
     .from("projects")
-    .insert({
-      user_id: user.id,
-      name: body.name,
-      config: body.config,
-    })
-    .select()
-    .single();
+    .select("id, name, updated_at, created_at, published, config")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false });
 
   if (error) {
     throw createError({
@@ -23,7 +19,6 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    success: true,
-    project: data,
+    projects: data || [],
   };
 });

@@ -51,6 +51,7 @@ export default defineNuxtConfig({
     layoutTransition: { name: "layout", mode: "out-in" },
   },
   routeRules: {
+    // All /api routes proxy to backend
     "/api/**": {
       proxy: `${process.env.API_BASE_URL || "http://localhost:3001"}/api/**`,
     },

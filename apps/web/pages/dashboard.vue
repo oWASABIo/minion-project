@@ -8,6 +8,7 @@ definePageMeta({
 
 const projects = ref<any[]>([]);
 const loading = ref(true);
+const supabase = useSupabaseClient();
 
 onMounted(async () => {
   if (!user.value) {
@@ -15,8 +16,22 @@ onMounted(async () => {
   }
 
   try {
+    const session = await supabase.auth.getSession();
+    const token = session?.data.session?.access_token;
+
+    if (!token) {
+      console.error("No auth token available");
+      loading.value = false;
+      return;
+    }
+
     const { projects: data } = await $fetch<{ projects: any[] }>(
-      "/api/projects/list"
+      "/api/projects/list",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
     );
     projects.value = data || [];
   } catch (e) {
@@ -65,11 +80,31 @@ async function handleConfirmDelete() {
 
   try {
     loading.value = true;
-    await $fetch(`/api/projects/${id}`, { method: "DELETE" });
+
+    const session = await supabase.auth.getSession();
+    const token = session?.data.session?.access_token;
+
+    if (!token) {
+      toastError("Auth Error", "Could not retrieve access token.");
+      loading.value = false;
+      return;
+    }
+
+    await $fetch(`/api/projects/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     // Refresh list
     const { projects: data } = await $fetch<{ projects: any[] }>(
-      "/api/projects/list"
+      "/api/projects/list",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
     );
     projects.value = data || [];
     toastSuccess("Deleted", "Project has been removed successfully.");

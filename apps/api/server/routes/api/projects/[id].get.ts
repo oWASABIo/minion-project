@@ -2,28 +2,31 @@ import { useSupabaseAuth } from "../../../utils/supabase";
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await useSupabaseAuth(event);
-  const body = await readBody(event);
+  const id = getRouterParam(event, "id");
 
-  // Insert Project
+  if (!id) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Missing project ID",
+    });
+  }
+
+  // Fetch Project
   const { data, error } = await supabase
     .from("projects")
-    .insert({
-      user_id: user.id,
-      name: body.name,
-      config: body.config,
-    })
-    .select()
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
     .single();
 
   if (error) {
     throw createError({
-      statusCode: 500,
-      statusMessage: error.message,
+      statusCode: 404,
+      statusMessage: "Project not found",
     });
   }
 
   return {
-    success: true,
     project: data,
   };
 });

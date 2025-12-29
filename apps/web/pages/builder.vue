@@ -366,7 +366,21 @@ async function loadProject(id: string) {
   stage.value = "analyzing";
   progressMessage.value = "Loading project...";
   try {
-    const { project } = await $fetch<{ project: any }>(`/api/projects/${id}`);
+    const session = user.value ? await supabase.auth.getSession() : null;
+    const token = session?.data.session?.access_token;
+
+    if (!token) {
+      toastError("Auth Error", "Could not retrieve access token.");
+      loading.value = false;
+      stage.value = "idle";
+      return;
+    }
+
+    const { project } = await $fetch<{ project: any }>(`/api/projects/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     if (project && project.config) {
       store.setProjectConfig(project.config);
       // Restore generation state
@@ -519,9 +533,21 @@ async function handleConfirmPublish() {
 
   publishLoading.value = true;
   try {
+    const session = user.value ? await supabase.auth.getSession() : null;
+    const token = session?.data.session?.access_token;
+
+    if (!token) {
+      toastError("Auth Error", "Could not retrieve access token.");
+      publishLoading.value = false;
+      return;
+    }
+
     const targetStatus = !isPublished.value; // Toggle
     await $fetch("/api/projects/publish", {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
       body: {
         id: route.query.id,
         published: targetStatus,

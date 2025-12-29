@@ -1,38 +1,68 @@
-import { serverSupabaseUser, serverSupabaseClient } from "#supabase/server";
-import type { Database } from "~/types/database.types";
+import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default defineEventHandler(async (event) => {
-  const user = await serverSupabaseUser(event);
-  const client = await serverSupabaseClient<Database>(event);
-  const projectId = event.context.params?.projectId;
-  const config = useRuntimeConfig();
+  const config = useRuntimeConfig(event);
+  const authHeader = getRequestHeader(event, "Authorization");
+  const projectId = getRouterParam(event, "projectId");
 
-  if (!user || !projectId) {
-    throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
+  if (!authHeader) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: "Missing Authorization header",
+    });
   }
 
-  // 1. Fetch Analytics Data Summary
-  const userId = (user as any).id || (user as any).sub;
+  if (!projectId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Missing project ID",
+    });
+  }
 
-  // Verify ownership
-  // @ts-ignore
-  const { data: project } = await client
+  // Initialize Supabase Client
+  const supabase = createClient(
+    config.SUPABASE_URL || process.env.SUPABASE_URL,
+    config.SUPABASE_KEY || process.env.SUPABASE_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    }
+  );
+
+  // Get User from Token
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: "Invalid Token or User not found",
+    });
+  }
+
+  // Verify ownership and get project details
+  const { data: project } = await supabase
     .from("projects")
     .select("id, name, config")
     .eq("id", projectId)
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .single();
 
-  const projectData = project as any;
-
   if (!project) {
-    throw createError({ statusCode: 403, statusMessage: "Forbidden" });
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Forbidden - Not project owner",
+    });
   }
 
   // Fetch Stats (Last 30 days)
-  // @ts-ignore
-  const { data: events } = await client
+  const { data: events } = await supabase
     .from("analytics_events")
     .select("event_type, metadata, created_at")
     .eq("project_id", projectId)
@@ -66,10 +96,19 @@ export default defineEventHandler(async (event) => {
     }
   });
 
-  // 2. Call Gemini
-  const genAI = new GoogleGenerativeAI(config.geminiApiKey);
+  // Call Gemini
+  const geminiApiKey = config.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  if (!geminiApiKey) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: "AI Service not configured",
+    });
+  }
+
+  const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
+  const projectData = project as any;
   const prompt = `
     Analyze this website traffic data for the project "${projectData.name}":
     ${JSON.stringify(stats, null, 2)}
@@ -95,7 +134,7 @@ export default defineEventHandler(async (event) => {
     console.error("Gemini Error:", e);
     throw createError({
       statusCode: 503,
-      message: "AI Service Unavailable",
+      statusMessage: "AI Service Unavailable",
     });
   }
 });
