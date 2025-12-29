@@ -24,6 +24,12 @@ export default defineNuxtConfig({
     server: {
       allowedHosts: true,
     },
+    optimizeDeps: {
+      include: ["@minions/shared"],
+    },
+  },
+  build: {
+    transpile: ["@minions/shared"],
   },
   supabase: {
     redirect: false, // Handle auth redirects manually for now

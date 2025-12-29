@@ -7,14 +7,24 @@ const props = defineProps<{
 </script>
 
 <template>
-  <section class="py-24 px-6 overflow-hidden">
+  <section
+    class="px-6 overflow-hidden"
+    :style="{
+      paddingTop: 'var(--section-spacing, 6rem)',
+      paddingBottom: 'var(--section-spacing, 6rem)',
+    }"
+  >
     <div
       class="border border-indigo-500/20 shadow-2xl overflow-hidden relative"
       :class="
         section.variant === 'banner'
-          ? 'w-full bg-primary rounded-none py-24 text-center'
-          : 'mx-auto max-w-5xl rounded-[2.5rem] bg-indigo-600 dark:bg-indigo-500/10 px-6 py-24 text-center relative isolate'
+          ? 'w-full bg-primary py-24 text-center'
+          : 'mx-auto max-w-5xl bg-indigo-600 dark:bg-indigo-500/10 px-6 py-24 text-center relative isolate'
       "
+      :style="{
+        borderRadius:
+          section.variant === 'banner' ? '0px' : 'var(--radius-ui, 2.5rem)',
+      }"
     >
       <!-- Background Glow (if Card) -->
       <div

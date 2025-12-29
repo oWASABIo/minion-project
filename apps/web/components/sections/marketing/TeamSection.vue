@@ -16,7 +16,13 @@ function getFallbackAvatar(name: string) {
 </script>
 
 <template>
-  <section class="py-24 px-6 overflow-hidden">
+  <section
+    class="px-6 overflow-hidden"
+    :style="{
+      paddingTop: 'var(--section-spacing, 6rem)',
+      paddingBottom: 'var(--section-spacing, 6rem)',
+    }"
+  >
     <div class="mx-auto max-w-5xl">
       <div class="text-center mb-16 max-w-3xl mx-auto">
         <h2

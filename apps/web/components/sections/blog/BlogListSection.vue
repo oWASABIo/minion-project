@@ -22,7 +22,14 @@ function getImageUrl(post: any) {
 </script>
 
 <template>
-  <section :id="section.id" class="py-24 px-6">
+  <section
+    :id="section.id"
+    class="px-6"
+    :style="{
+      paddingTop: 'var(--section-spacing, 6rem)',
+      paddingBottom: 'var(--section-spacing, 6rem)',
+    }"
+  >
     <div class="mx-auto max-w-5xl">
       <div
         class="flex flex-col md:flex-row items-end justify-between gap-4 mb-12"
@@ -58,11 +65,12 @@ function getImageUrl(post: any) {
         <article
           v-for="post in items"
           :key="post?.id"
-          class="group flex flex-col overflow-hidden rounded-3xl border transition-all hover:shadow-xl hover:-translate-y-1"
+          class="group flex flex-col overflow-hidden border transition-all hover:shadow-xl hover:-translate-y-1"
           :style="{
             backgroundColor: 'var(--bg-card)',
             borderColor: 'var(--border-color)',
             boxShadow: 'var(--shadow-card)',
+            borderRadius: 'var(--radius-ui, 1.5rem)',
           }"
         >
           <div

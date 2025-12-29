@@ -28,6 +28,10 @@ export const useBuilderStore = defineStore("builder", {
       brief: "" as string,
       wordpressBaseUrl: "" as string,
       wordpressRestBase: "/wp-json/wp/v2" as string,
+
+      // Default Global Design Tokens
+      spacing: 5 as number,
+      borderRadius: 16 as number,
     },
   }),
 

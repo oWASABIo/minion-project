@@ -7,7 +7,13 @@ defineProps<{
 </script>
 
 <template>
-  <section class="py-24 px-6 overflow-hidden">
+  <section
+    class="px-6 overflow-hidden"
+    :style="{
+      paddingTop: 'var(--section-spacing, 6rem)',
+      paddingBottom: 'var(--section-spacing, 6rem)',
+    }"
+  >
     <div class="mx-auto max-w-5xl">
       <div class="text-center mb-16 max-w-3xl mx-auto">
         <h2
@@ -31,20 +37,21 @@ defineProps<{
         <div
           v-for="(plan, idx) in section.plans || []"
           :key="idx"
-          class="relative flex flex-col rounded-3xl p-8 transition-transform hover:-translate-y-2 duration-300"
+          class="relative flex flex-col p-8 transition-transform hover:-translate-y-2 duration-300"
           :class="
             plan.isPopular
               ? 'border-2 border-primary bg-white/80 dark:bg-white/5 shadow-2xl skew-y-0 scale-105 z-10 backdrop-blur-md'
               : 'border shadow-lg backdrop-blur-sm'
           "
           :style="
-            !plan.isPopular
-              ? {
+            plan.isPopular
+              ? { borderRadius: 'var(--radius-ui, 1.5rem)' }
+              : {
                   backgroundColor: 'var(--bg-card)',
                   borderColor: 'var(--border-color)',
                   boxShadow: 'var(--shadow-card)',
+                  borderRadius: 'var(--radius-ui, 1.5rem)',
                 }
-              : {}
           "
         >
           <div

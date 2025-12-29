@@ -3,6 +3,8 @@ import { computed, ref, watch } from "vue";
 import type { PageConfig, Section, BlogListSection } from "@minions/shared";
 import { resolveWordpressConfig } from "~/utils/backend";
 import { useRoute } from "vue-router";
+import { useBuilderStore } from "~/stores/builder";
+const store = useBuilderStore();
 
 import GeneratedHeader from "~/components/sections/marketing/GeneratedHeader.vue";
 import SiteFooter from "~/components/SiteFooter.vue";
@@ -229,10 +231,26 @@ useHead(() => ({
 }));
 
 const themeStyle = computed(() => {
+  // Base vars used by both modes
+  const designTokens = {
+    // Design Tokens (Radius & Spacing)
+    "--radius-ui": `${
+      (props.config?.site as any)?.borderRadius ??
+      (store.projectConfig?.site as any)?.borderRadius ??
+      16
+    }px`,
+    "--section-spacing": `${
+      ((props.config?.site as any)?.spacing ??
+        (store.projectConfig?.site as any)?.spacing ??
+        5) * 4
+    }rem`,
+  };
+
   if (isBlueprint.value) {
     return {
       background: "var(--bg-page)",
       fontFamily: "'JetBrains Mono', monospace",
+      ...designTokens,
     } as any;
   }
 
@@ -246,23 +264,24 @@ const themeStyle = computed(() => {
                  var(--bg-page)`,
     ["--accent" as any]: accent.value,
     ["--font-primary" as any]: font.value,
-    ["--text-primary" as any]: isDark.value ? "#ffffff" : "#0f172a", // white vs slate-900
-    ["--text-secondary" as any]: isDark.value ? "#94a3b8" : "#475569", // slate-400 vs slate-600
+    ["--text-primary" as any]: isDark.value ? "#ffffff" : "#0f172a",
+    ["--text-secondary" as any]: isDark.value ? "#94a3b8" : "#475569",
     ["--bg-page" as any]: isDark.value ? "#020617" : "#ffffff",
-    ["--bg-subtle" as any]: isDark.value ? "#0f172a" : "#f9fafb", // slate-900 vs slate-50 (lighter)
+    ["--bg-subtle" as any]: isDark.value ? "#0f172a" : "#f9fafb",
     ["--bg-card" as any]: isDark.value
       ? "rgba(255, 255, 255, 0.05)"
       : "#ffffff",
     ["--border-color" as any]: isDark.value
       ? "rgba(255, 255, 255, 0.1)"
-      : "rgba(0, 0, 0, 0.05)", // Ultra subtle border
+      : "rgba(0, 0, 0, 0.05)",
     ["--nav-bg" as any]: isDark.value
       ? "rgba(2, 6, 23, 0.8)"
-      : "rgba(255, 255, 255, 0.9)", // Whiter nav
+      : "rgba(255, 255, 255, 0.9)",
     ["--shadow-card" as any]: isDark.value
       ? "none"
-      : "0 4px 20px -2px rgba(0, 0, 0, 0.05)", // Softer, deeper shadow
+      : "0 4px 20px -2px rgba(0, 0, 0, 0.05)",
     ["--color-primary" as any]: accent.value,
+    ...designTokens,
   } as any;
 });
 </script>
@@ -278,9 +297,7 @@ const themeStyle = computed(() => {
     <main
       class="flex-1"
       :class="
-        enableContainer
-          ? 'mx-auto max-w-5xl px-6 py-12 space-y-16 w-full'
-          : 'w-full'
+        enableContainer ? 'mx-auto max-w-5xl px-6 py-12 w-full' : 'w-full'
       "
     >
       <template v-for="section in config.sections" :key="section.id">

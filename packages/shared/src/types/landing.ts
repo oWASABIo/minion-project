@@ -26,6 +26,10 @@ export type SiteConfig = {
   primaryColor?: string;
   themeMode?: "light" | "dark";
   fontFamily?: string;
+
+  // ✅ New Design Tokens
+  spacing?: number; // Global section spacing (0-10)
+  borderRadius?: number; // Global border radius (0-32 px)
 };
 
 export type WordPressConfig = {
