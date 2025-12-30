@@ -76,40 +76,49 @@ useHead(() => ({
 
     <main class="flex-1 w-full">
       <template v-for="section in config.sections" :key="section.id">
-        <!-- Render sections directly without SectionWrapper -->
-        <HeroSection v-if="section.type === 'hero'" :section="section" />
+        <div
+          :id="section.id"
+          class="relative transition-all duration-300"
+          :class="useSectionStyles(section).spacingClass.value"
+          :style="useSectionStyles(section).wrapperStyle.value"
+        >
+          <HeroSection v-if="section.type === 'hero'" :section="section" />
 
-        <FeaturesSection
-          v-else-if="section.type === 'features'"
-          :section="section"
-        />
+          <FeaturesSection
+            v-else-if="section.type === 'features'"
+            :section="section"
+          />
 
-        <TestimonialsSection
-          v-else-if="section.type === 'testimonials'"
-          :section="section"
-        />
+          <TestimonialsSection
+            v-else-if="section.type === 'testimonials'"
+            :section="section"
+          />
 
-        <FaqSection v-else-if="section.type === 'faq'" :section="section" />
+          <FaqSection v-else-if="section.type === 'faq'" :section="section" />
 
-        <BlogListSectionComp
-          v-else-if="section.type === 'blogList'"
-          :section="section"
-          :posts="blogDataMap[section.id] || []"
-          :loading="!!blogLoadingMap[section.id]"
-        />
+          <BlogListSectionComp
+            v-else-if="section.type === 'blogList'"
+            :section="section"
+            :posts="blogDataMap[section.id] || []"
+            :loading="!!blogLoadingMap[section.id]"
+          />
 
-        <CtaSection v-else-if="section.type === 'cta'" :section="section" />
+          <CtaSection v-else-if="section.type === 'cta'" :section="section" />
 
-        <PricingSection
-          v-else-if="section.type === 'pricing'"
-          :section="section"
-        />
+          <PricingSection
+            v-else-if="section.type === 'pricing'"
+            :section="section"
+          />
 
-        <StatsSection v-else-if="section.type === 'stats'" :section="section" />
+          <StatsSection
+            v-else-if="section.type === 'stats'"
+            :section="section"
+          />
 
-        <TeamSection v-else-if="section.type === 'team'" :section="section" />
+          <TeamSection v-else-if="section.type === 'team'" :section="section" />
 
-        <CliSection v-else-if="section.type === 'cli'" :section="section" />
+          <CliSection v-else-if="section.type === 'cli'" :section="section" />
+        </div>
       </template>
     </main>
 

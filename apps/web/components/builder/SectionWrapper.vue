@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Section } from "@minions/shared";
+import { useSectionStyles } from "~/composables/useSectionStyles";
 
 const props = defineProps<{
   section: Section;
@@ -16,45 +17,7 @@ const emit = defineEmits<{
   (e: "delete", id: string): void;
 }>();
 
-const classes = computed(() => {
-  if (!props.isEditMode) return "";
-
-  const base =
-    "relative group cursor-pointer transition-all duration-200 border-2";
-
-  if (props.isSelected) {
-    return `${base} border-primary shadow-[0_0_0_4px_rgba(99,102,241,0.2)] z-10`;
-  }
-
-  // Hover state (only if not selected)
-  return `${base} border-transparent hover:border-primary/50 hover:bg-primary/5 hover:shadow-lg`;
-});
-const wrapperStyle = computed(() => {
-  const styles = (props.section as any).styles || {};
-  const bg = styles.backgroundColor;
-  const txt = styles.textColor;
-
-  if (!bg && !txt) return {};
-
-  return {
-    // Apply functionality to the wrapper itself
-    backgroundColor: bg,
-    color: txt,
-
-    // Inject variables for children components to consume
-    "--text-primary": txt,
-    "--text-secondary": txt ? `${txt}cc` : undefined, // 80% opacity for secondary
-    "--bg-section": bg,
-  };
-});
-
-const spacingClass = computed(() => {
-  const s = (props.section as any).styles?.spacing;
-  if (s === "none") return "py-0";
-  if (s === "sm") return "py-8";
-  if (s === "lg") return "py-24";
-  return "py-16"; // Default md
-});
+const { wrapperStyle, spacingClass } = useSectionStyles(() => props.section);
 </script>
 
 <template>

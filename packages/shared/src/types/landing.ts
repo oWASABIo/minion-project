@@ -249,8 +249,10 @@ export type PageConfig = {
 
   meta?: PageMeta;
 
-  // เผื่อมีคนเก็บ stack ไว้ที่ root (กันพัง)
+  // เผื่อมีคนเก็บ stack หรือ mode ไว้ที่ root (กันพัง)
   stack?: Stack;
+  mode?: Mode;
+  projectId?: number;
 };
 
 export type TemplateDefinition = {

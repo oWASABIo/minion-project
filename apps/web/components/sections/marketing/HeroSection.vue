@@ -19,6 +19,8 @@ const isCenter = computed(() => props.section.variant !== "split");
     :style="{
       paddingTop: 'var(--section-spacing, 5rem)',
       paddingBottom: 'var(--section-spacing, 5rem)',
+      backgroundColor:
+        section.variant !== 'glass' ? 'var(--bg-section)' : 'transparent',
     }"
   >
     <!-- Background for Glass Variant -->
