@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Section } from "@minions/shared";
+import { useSectionStyles } from "~/composables/useSectionStyles";
 
 const props = defineProps<{
   section: Section;
@@ -16,60 +17,27 @@ const emit = defineEmits<{
   (e: "delete", id: string): void;
 }>();
 
-const classes = computed(() => {
-  if (!props.isEditMode) return "";
-
-  const base =
-    "relative group cursor-pointer transition-all duration-200 border-2";
-
-  if (props.isSelected) {
-    return `${base} border-primary shadow-[0_0_0_4px_rgba(99,102,241,0.2)] z-10`;
-  }
-
-  // Hover state (only if not selected)
-  return `${base} border-transparent hover:border-primary/50 hover:bg-primary/5 hover:shadow-lg`;
-});
-const wrapperStyle = computed(() => {
-  const styles = (props.section as any).styles || {};
-  const bg = styles.backgroundColor;
-  const txt = styles.textColor;
-
-  if (!bg && !txt) return {};
-
-  return {
-    // Apply functionality to the wrapper itself
-    backgroundColor: bg,
-    color: txt,
-
-    // Inject variables for children components to consume
-    "--text-primary": txt,
-    "--text-secondary": txt ? `${txt}cc` : undefined, // 80% opacity for secondary
-    "--bg-section": bg,
-  };
-});
-
-const spacingClass = computed(() => {
-  const s = (props.section as any).styles?.spacing;
-  if (s === "none") return "py-0";
-  if (s === "sm") return "py-8";
-  if (s === "lg") return "py-24";
-  return "py-16"; // Default md
-});
+const { wrapperStyle, spacingClass } = useSectionStyles(() => props.section);
 </script>
 
 <template>
   <section
     :id="section.id"
-    class="relative group transition-all duration-300 border-2 border-transparent"
+    class="relative transition-all duration-300"
     :class="[
-      isSelected ? '!border-indigo-500 z-10' : 'hover:border-indigo-500/30',
+      isEditMode ? 'group border-2' : '',
+      isEditMode && isSelected
+        ? '!border-indigo-500 z-10'
+        : isEditMode
+        ? 'border-transparent hover:border-indigo-500/30'
+        : '',
       spacingClass,
     ]"
     :style="wrapperStyle"
     :data-sb-section-id="section.id"
-    @click.stop="$emit('select', section.id)"
+    @click.stop="isEditMode ? $emit('select', section.id) : null"
   >
-    <!-- Edit Label (Center Top) -->
+    <!-- Edit Label (Center Top) - Only show in Edit Mode -->
     <div
       v-if="isEditMode"
       class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-lg pointer-events-none z-20 whitespace-nowrap"

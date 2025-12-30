@@ -1,18 +1,18 @@
 /* Wireframe / Blueprint Aesthetic */
 .is-blueprint {
-  --accent: #64748b !important;
-  --text-primary: #1e293b !important;
-  --text-secondary: #64748b !important;
-  --bg-page: #ffffff !important;
-  --bg-subtle: #f8fafc !important;
-  --bg-card: #ffffff !important;
-  --border-color: #000000 !important; /* Sharp black lines for blueprints */
-  --shadow-card: none !important;
+  --accent: #64748b;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --bg-page: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-card: #ffffff;
+  --border-color: #000000;
+  --shadow-card: none;
 
   background-color: #ffffff !important;
   background-image: radial-gradient(#e5e7eb 1px, transparent 1px) !important;
   background-size: 20px 20px !important;
-  color: #000000 !important;
+  color: #000000;
   font-family: "JetBrains Mono", monospace !important;
 }
 
@@ -20,8 +20,8 @@
 .is-blueprint .section-bg,
 .is-blueprint section,
 .is-blueprint main {
-  background-color: transparent !important;
-  border-bottom: 2px solid #000000 !important;
+  background-color: transparent;
+  border-bottom: 2px solid #000000;
 }
 
 .is-blueprint img,
@@ -43,15 +43,15 @@
 .is-blueprint p,
 .is-blueprint span,
 .is-blueprint div:not(.grid):not(.flex) {
-  color: #000000 !important;
+  color: #000000;
 }
 
 .is-blueprint h1,
 .is-blueprint h2,
 .is-blueprint h3 {
-  text-transform: uppercase !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.02em !important;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 /* Sketchy Button Effect */

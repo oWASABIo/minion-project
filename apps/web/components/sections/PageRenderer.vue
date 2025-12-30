@@ -62,10 +62,10 @@ const { trackPageView } = useAnalytics();
 const route = useRoute();
 
 watch(
-  () => props.config, // Track whenever config (page) changes
-  (newConfig) => {
-    if ((newConfig as any)?.projectId) {
-      trackPageView((newConfig as any).projectId, route.path);
+  () => props.config as PageConfig, // Track whenever config (page) changes
+  (newConfig: PageConfig) => {
+    if (newConfig?.projectId) {
+      trackPageView(newConfig.projectId, route.path);
     }
   },
   { immediate: true }
@@ -73,7 +73,7 @@ watch(
 
 const isBlueprint = computed(() => {
   return (
-    (props.config as any)?.mode === "blueprint" ||
+    props.config?.mode === "blueprint" ||
     props.config?.meta?.mode === "blueprint"
   );
 });

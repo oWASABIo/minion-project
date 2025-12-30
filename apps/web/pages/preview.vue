@@ -163,7 +163,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen">
+  <div class="min-h-screen preview-mode">
     <NuxtErrorBoundary>
       <PageRenderer
         v-if="config"
@@ -220,14 +220,14 @@ onUnmounted(() => {
 </template>
 
 <style>
-/* Visual Editing Styles */
-[data-sb-field] {
+/* Visual Editing Styles - Scoped to Preview Mode Only */
+.preview-mode [data-sb-field] {
   position: relative;
   transition: all 0.2s ease;
   outline: none !important;
 }
 
-[data-sb-field]:hover {
+.preview-mode [data-sb-field]:hover {
   cursor: text;
   outline: 2px dotted #6366f1 !important; /* Indigo-500 */
   outline-offset: 4px;
@@ -235,7 +235,7 @@ onUnmounted(() => {
   border-radius: 4px;
 }
 
-[data-sb-field]:focus {
+.preview-mode [data-sb-field]:focus {
   outline: 2px solid #6366f1 !important;
   outline-offset: 4px;
   background-color: rgba(99, 102, 241, 0.1);
@@ -244,15 +244,15 @@ onUnmounted(() => {
 }
 
 /* Special Handling for Images */
-img[data-sb-field] {
+.preview-mode img[data-sb-field] {
   cursor: pointer !important;
 }
-img[data-sb-field]:hover {
+.preview-mode img[data-sb-field]:hover {
   outline-style: solid !important;
 }
 
 /* Tooltip indicator */
-[data-sb-field]:hover::after {
+.preview-mode [data-sb-field]:hover::after {
   content: "Click to edit";
   position: absolute;
   bottom: 100%;
@@ -271,7 +271,7 @@ img[data-sb-field]:hover {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-[data-sb-field]:focus::after {
+.preview-mode [data-sb-field]:focus::after {
   display: none;
 }
 </style>
