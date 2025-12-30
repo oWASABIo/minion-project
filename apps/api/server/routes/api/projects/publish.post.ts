@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
     })
     .eq("id", id)
     .eq("user_id", user.id) // Ensure ownership
+    .is("deleted_at", null) // Don't update deleted projects
     .select()
     .single();
 

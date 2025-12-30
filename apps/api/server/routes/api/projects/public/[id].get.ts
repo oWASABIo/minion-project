@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
     .select("id, name, config, published")
     .eq("id", id)
     .eq("published", true) // CRITICAL: Only allow published projects
+    .is("deleted_at", null) // CRITICAL: Don't show deleted projects
     .single();
 
   if (error || !data) {
