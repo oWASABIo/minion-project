@@ -1,7 +1,35 @@
-# MINIONS AI Builder
+# MINIONS AI Builder 🍌
 
 An AI-powered website builder prototype. Generates multi-page websites based on text prompts.
 
+## 🚀 Changelog / Release Notes
+
+### v0.5.0 - The "Polish & Power" Update (Current)
+
+This major update focuses on stability, customization, and architectural cleanup.
+
+#### ✨ New Features
+
+- **Deep Customization:** Added Section-specific background & text color overrides.
+- **Inline Visual Editing:** Edit text directly on the preview canvas with hover/focus states.
+- **Hero Variants:** Added multiple Hero styles (Split, Center, Glow, Glass, Terminal).
+- **Public Project Links:** Dedicated public usage endpoint for published pages.
+
+#### 🛠️ Architecture & API
+
+- **Centralized API:** Migrated all project endpoints to a unified backend layer (`apps/api`).
+- **Authorization:** Added robust auth headers to all API calls (fix 401 errors).
+- **Type Safety:** rigorous cleanup of `as any` and strict `PageConfig` typing.
+- **Blueprint Mode:** Refined blueprint theme to allow inline style overrides.
+
+#### 🐛 Bug Fixes
+
+- Fixed "Loading Preview" hangs.
+- Resolved `projectId` type mismatch (string vs number) in Analytics.
+- Fixed reactivity issues in builder sidebar color pickers.
+- Optimized history snapshots for smoother undo/redo.
+
+---
 
 Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
 
