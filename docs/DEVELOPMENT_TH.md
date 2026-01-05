@@ -9,8 +9,11 @@
 | Workspace           | Path              | หน้าที่                            | พอร์ต  |
 | ------------------- | ----------------- | ---------------------------------- | ------ |
 | **@minions/web**    | `apps/web`        | ส่วนหน้าบ้าน (Frontend) ใช้ Nuxt 3 | `3000` |
-| **@minions/api**    | `apps/api`        | ส่วนหลังบ้าน (Backend) ใช้ Nitro   | `3001` |
-| **@minions/shared** | `packages/shared` | ตัวแปรกลาง (Types) ที่ใช้ร่วมกัน   | -      |
+| **@minions/api**    | `apps/api`        | หัวใจหลักหลังบ้าน (Backend Engine) | `3001` |
+| **@minions/shared** | `packages/shared` | ตัวแปรกลาง, โลจิก และระบบธีม       | -      |
+
+> [!NOTE]
+> ตั้งแต่เวอร์ชัน v1.2.0 เป็นต้นไป โลจิกสำคัญของโปรเจกต์ (Save, Load, Publish, Analytics) ได้ถูกรวมศูนย์ไว้ที่ **@minions/api** เพื่อความปลอดภัยและรวบรวม Business Logic ไว้ที่จุดเดียวครับ
 
 ---
 
@@ -96,7 +99,19 @@ npm run test --workspace=@minions/api
 
 ---
 
----
+## 🎨 ระบบดีไซน์กลาง (Global Design System)
+
+Builder ของเราใช้ระบบดีไซน์ที่รวมศูนย์ไว้ที่ `packages/shared/src/theme/themes.ts`
+
+### การเพิ่มธีมใหม่:
+
+1.  กำหนดชุดสีและฟอนต์ใน `CURATED_THEMES` ภายในไฟล์ `packages/shared/src/theme/themes.ts`
+2.  ตรวจสอบว่าธีมนั้นทำตาม Interface `ThemeDefinition`
+3.  ตัวหน้าจอจัดการ (`SectionEditor.vue`) จะดึงธีมใหม่ไปแสดงเป็นตัวเลือกให้โดยอัตโนมัติครับ
+
+### Composables ที่สำคัญ:
+
+- **`useThemeVariables`**: อยู่ใน `apps/web/composables/` ทำหน้าที่แปลงค่าจาก Theme Config มาเป็น CSS Variables เพื่อฉีดเข้าไปในหน้าพรีวิว
 
 ## ⚡️ Vue 3 + Vite Integration
 

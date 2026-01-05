@@ -9,10 +9,11 @@ MINIONS AI Builder is an open-source tool that generates production-ready landin
 ## Features
 
 - 🏗 **Multi-Stack Generation**: Create projects for Nuxt 3, Vue 3 + Vite, or HTML/Tailwind.
-- 🎨 **Visual Variance**: Support for Light/Dark modes, multiple themes, and layout randomization.
-- 📋 **Diverse Templates**: Built-in specialized templates for **Landing Pages, SaaS, Portfolios, E-Commerce, Blogs, and Company Sites**.
-- ⚡ **Real-time Streaming**: Watch your project being built in real-time.
-- 🧠 **Smart Context**: Uses Domain-Driven Design to generate coherent content and structure.
+- 🎨 **Global Theme Switcher**: Instantly swap professionally curated themes, typography, and color palettes project-wide.
+- 📄 **Multi-page Architecture**: Full support for creating, managing, and navigating across multiple pages in a single project.
+- 🛒 **E-commerce Ready**: Built-in specialized templates for Landing Pages, SaaS, Portfolios, and full-featured E-commerce stores with functional carts.
+- ⚡ **Real-time Streaming**: Watch your project being built in real-time with live layout randomization.
+- 🧠 **Domain-Driven Context**: Uses DDD to generate coherent content, structure, and smart component selection.
 - 📦 **Monorepo Architecture**: Clean separation of UI and Generation Logic.
 
 ## Architecture
