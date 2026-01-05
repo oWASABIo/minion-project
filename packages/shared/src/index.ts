@@ -3,3 +3,4 @@ export * from "./logic/normalize";
 export * from "./logic/validate";
 export * from "./logic/stack-spec";
 export * from "./logic/parser";
+export * from "./theme/themes";

@@ -678,6 +678,48 @@ async function handleConfirmPublish() {
               />
             </button>
           </div>
+
+          <!-- Global Design Shortcut (Always Visible) -->
+          <div class="px-1">
+            <button
+              @click="isEditingSiteConfig = true"
+              class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-500/50 transition-all group"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors"
+                >
+                  <Cog6ToothIcon class="h-5 w-5" />
+                </div>
+                <div class="text-left">
+                  <div
+                    class="text-xs font-bold text-white uppercase tracking-wider"
+                  >
+                    Global Design
+                  </div>
+                  <div class="text-[10px] text-slate-500">
+                    Themes, Fonts & Branding
+                  </div>
+                </div>
+              </div>
+              <div
+                class="text-slate-600 group-hover:text-indigo-400 transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+            </button>
+          </div>
           <div class="rounded-xl border border-white/10 bg-white/5 p-4">
             <div v-if="selectedSection || isEditingSiteConfig">
               <SectionEditor
@@ -692,26 +734,12 @@ async function handleConfirmPublish() {
             <div v-else>
               <div class="mb-6">
                 <!-- Structure / Reordering -->
-                <div class="flex items-center justify-between mb-3">
+                <div class="mb-3 px-1">
                   <h3
-                    class="text-xs font-semibold uppercase tracking-[0.16em] text-white"
+                    class="text-[10px] font-bold uppercase tracking-widest text-slate-500"
                   >
                     Structure
                   </h3>
-                  <button
-                    @click="isEditingSiteConfig = true"
-                    class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all"
-                    :class="
-                      isEditingSiteConfig
-                        ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]'
-                        : 'text-slate-500 hover:text-slate-300 bg-white/5'
-                    "
-                  >
-                    <Cog6ToothIcon
-                      class="h-3 w-3 transition-transform group-hover:rotate-45"
-                    />
-                    Site Settings
-                  </button>
                 </div>
                 <draggable
                   v-model="currentSections"

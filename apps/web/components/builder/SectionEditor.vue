@@ -5,6 +5,7 @@ import BaseInput from "~/components/ui/BaseInput.vue";
 import BaseTextarea from "~/components/ui/BaseTextarea.vue";
 import { useBuilderStore } from "~/stores/builder";
 import { storeToRefs } from "pinia";
+import { CURATED_THEMES } from "../../../../packages/shared/src/theme/themes";
 import { usePreviewSync } from "~/composables/usePreviewSync";
 import InternalLinkPicker from "./InternalLinkPicker.vue";
 import { Cog6ToothIcon, XMarkIcon, PlusIcon } from "@heroicons/vue/24/outline";
@@ -221,9 +222,7 @@ defineExpose({ focusField });
       class="flex items-center justify-between p-4 border-b border-white/10 bg-slate-800/50 shrink-0"
     >
       <h2 class="text-sm font-bold text-white flex items-center gap-2">
-        <template v-if="editSiteConfig">
-          < Cog6ToothIcon class="w-4 h-4 text-indigo-400" /> Site Settings
-        </template>
+        <template v-if="editSiteConfig"> Site Settings </template>
         <template v-else-if="selectedSection">
           <span class="capitalize">{{ selectedSection.type }}</span>
         </template>
@@ -241,6 +240,69 @@ defineExpose({ focusField });
     <div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
       <!-- SITE GLOBAL SETTINGS MODE -->
       <div v-if="editSiteConfig" class="space-y-6">
+        <!-- Curated Themes Section -->
+        <div class="space-y-4">
+          <label
+            class="text-[10px] font-bold text-slate-500 uppercase tracking-widest"
+          >
+            Curated Themes
+          </label>
+          <div class="grid grid-cols-1 gap-3">
+            <button
+              v-for="theme in CURATED_THEMES"
+              :key="theme.id"
+              @click="store.applyTheme(theme.id)"
+              class="flex items-center gap-4 p-3 rounded-2xl border-2 transition-all group overflow-hidden relative"
+              :class="
+                store.projectConfig?.site?.primaryColor ===
+                  theme.primaryColor &&
+                store.projectConfig?.site?.themeMode === theme.themeMode
+                  ? 'border-indigo-500 bg-indigo-500/10'
+                  : 'border-white/5 hover:border-indigo-500/50 hover:bg-white/5'
+              "
+            >
+              <!-- Preview Swatch -->
+              <div
+                class="w-10 h-10 rounded-xl flex items-center justify-center shadow-inner relative z-10 shrink-0"
+                :style="{
+                  backgroundColor:
+                    theme.themeMode === 'dark' ? '#020617' : '#ffffff',
+                  border:
+                    '1px solid ' +
+                    (theme.themeMode === 'dark'
+                      ? 'rgba(255,255,255,0.1)'
+                      : 'rgba(0,0,0,0.1)'),
+                }"
+              >
+                <div
+                  class="w-5 h-5 rounded-full"
+                  :style="{ backgroundColor: theme.primaryColor }"
+                ></div>
+              </div>
+
+              <div class="text-left relative z-10 flex-1 min-w-0">
+                <div class="font-bold text-xs text-white truncate">
+                  {{ theme.name }}
+                </div>
+                <div class="text-[10px] text-slate-400 capitalize truncate">
+                  {{ theme.themeMode }} mode •
+                  {{ theme.fontFamily.split(",")[0].replace(/'/g, "") }}
+                </div>
+              </div>
+
+              <!-- Selection Indicator -->
+              <div
+                v-if="
+                  store.projectConfig?.site?.primaryColor ===
+                    theme.primaryColor &&
+                  store.projectConfig?.site?.themeMode === theme.themeMode
+                "
+                class="absolute top-2 right-2 w-2 h-2 rounded-full bg-indigo-500"
+              ></div>
+            </button>
+          </div>
+        </div>
+
         <!-- Branding Section -->
         <div class="space-y-3">
           <label
