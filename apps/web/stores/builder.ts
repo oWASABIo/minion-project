@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
 import type { ProjectConfig, Section, PageConfig } from "@minions/shared";
+import type { ThemeDefinition } from "../../../packages/shared/src/theme/themes";
+import { CURATED_THEMES } from "../../../packages/shared/src/theme/themes";
 import { debounce } from "~/utils/performance";
 
 export const useBuilderStore = defineStore("builder", {
@@ -379,6 +381,21 @@ export const useBuilderStore = defineStore("builder", {
       }
 
       this.pushHistory();
+    },
+
+    applyTheme(themeId: string) {
+      const theme = CURATED_THEMES.find(
+        (t: ThemeDefinition) => t.id === themeId
+      );
+      if (!theme || !this.projectConfig) return;
+
+      this.updateGlobalSiteConfig({
+        primaryColor: theme.primaryColor,
+        themeMode: theme.themeMode,
+        fontFamily: theme.fontFamily,
+        borderRadius: theme.borderRadius,
+        spacing: theme.spacing,
+      });
     },
 
     // --- Page Management Actions ---
