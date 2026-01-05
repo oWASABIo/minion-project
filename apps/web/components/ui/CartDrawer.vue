@@ -122,22 +122,27 @@ function close() {
                             </div>
 
                             <div class="ml-4 flex flex-1 flex-col">
-                              <div>
-                                <div
-                                  class="flex justify-between text-base font-medium transition-colors"
+                              <div
+                                class="flex justify-between text-base font-medium transition-colors"
+                                style="color: var(--text-primary)"
+                              >
+                                <h3>
+                                  <a href="#">{{ product.name }}</a>
+                                </h3>
+                                <p
+                                  class="ml-4"
                                   style="color: var(--text-primary)"
                                 >
-                                  <h3>
-                                    <a href="#">{{ product.name }}</a>
-                                  </h3>
-                                  <p
-                                    class="ml-4"
-                                    style="color: var(--text-primary)"
-                                  >
-                                    {{ product.price }}
-                                  </p>
-                                </div>
+                                  {{ product.price }}
+                                </p>
                               </div>
+                              <p
+                                v-if="product.size"
+                                class="mt-1 text-sm transition-colors"
+                                style="color: var(--text-secondary)"
+                              >
+                                Size: {{ product.size }}
+                              </p>
                               <div
                                 class="flex flex-1 items-end justify-between text-sm"
                               >

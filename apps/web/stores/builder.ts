@@ -196,6 +196,166 @@ export const useBuilderStore = defineStore("builder", {
       }
     },
 
+    addSection(type: string) {
+      if (!this.projectConfig || !this.currentPageId) return;
+      const page = this.projectConfig.pages[this.currentPageId];
+      if (!page) return;
+
+      const id = `sec-${Math.random().toString(36).substring(2, 9)}`;
+      let section: any = { id, type };
+
+      // Default Content based on Type
+      switch (type) {
+        case "hero":
+          section = {
+            ...section,
+            eyebrow: "New Section",
+            headline: "Welcome to our new page",
+            description: "Start building your amazing content here.",
+            primaryCta: { label: "Get Started", href: "#" },
+            variant: "center",
+          };
+          break;
+        case "features":
+          section = {
+            ...section,
+            title: "Features",
+            subtitle: "Why choose us?",
+            items: [
+              { title: "Fast", description: "Lightning fast performance" },
+              { title: "Secure", description: "Enterprise grade security" },
+              { title: "Easy", description: "Simple and intuitive to use" },
+            ],
+          };
+          break;
+        case "cta":
+          section = {
+            ...section,
+            title: "Ready to start?",
+            description: "Join thousands of happy users today.",
+            primaryCta: { label: "Join Now", href: "#" },
+          };
+          break;
+        case "pricing":
+          section = {
+            ...section,
+            title: "Simple Pricing",
+            plans: [
+              {
+                name: "Basic",
+                price: "$9",
+                period: "/mo",
+                features: ["1 Project", "Basic Support"],
+                cta: { label: "Start Free", href: "#" },
+              },
+              {
+                name: "Pro",
+                price: "$29",
+                period: "/mo",
+                features: ["Unlimited Projects", "Priority Support"],
+                cta: { label: "Get Pro", href: "#" },
+              },
+            ],
+          };
+          break;
+        case "faq":
+          section = {
+            ...section,
+            title: "FAQ",
+            items: [
+              {
+                q: "Is it free?",
+                a: "We have a generous free tier for everyone.",
+              },
+              {
+                q: "How do I cancel?",
+                a: "You can cancel anytime from your dashboard.",
+              },
+            ],
+          };
+          break;
+        case "testimonials":
+          section = {
+            ...section,
+            title: "What people say",
+            items: [
+              {
+                quote: "This changed my life!",
+                name: "John Doe",
+                role: "CEO, Tech Corp",
+              },
+            ],
+          };
+          break;
+        case "stats":
+          section = {
+            ...section,
+            items: [
+              { value: "10k+", label: "Users" },
+              { value: "99.9%", label: "Uptime" },
+              { value: "24/7", label: "Support" },
+            ],
+          };
+          break;
+        case "team":
+          section = {
+            ...section,
+            title: "Our Team",
+            members: [
+              { name: "Sarah Chen", role: "Lead Designer" },
+              { name: "Michael Wilson", role: "Fullstack Developer" },
+            ],
+          };
+          break;
+        case "productList":
+          section = {
+            ...section,
+            title: "Our Shop",
+            subtitle: "Browse our amazing products",
+            items: [
+              {
+                id: "p1",
+                name: "Premium Minion 1",
+                price: "$49.99",
+                image: "/images/placeholder-wireframe.png",
+                cta: { label: "View Details", href: "#" },
+              },
+              {
+                id: "p2",
+                name: "Premium Minion 2",
+                price: "$59.99",
+                image: "/images/placeholder-wireframe.png",
+                cta: { label: "View Details", href: "#" },
+              },
+            ],
+          };
+          break;
+        case "productDetail":
+          section = {
+            ...section,
+            product: {
+              name: "Featured Product",
+              price: "$99.99",
+              description:
+                "This is a high-quality product designed for maximum efficiency.",
+              images: ["/images/placeholder-wireframe.png"],
+              features: ["High Quality", "Durable", "Eco-friendly"],
+              cta: { label: "Add to Cart", href: "#" },
+            },
+          };
+          break;
+        default:
+          section = {
+            ...section,
+            title: `New ${type} Section`,
+          };
+      }
+
+      page.sections.push(section);
+      this.selectedSectionId = id; // Auto-select new section
+      this.pushHistory();
+    },
+
     updateGlobalSiteConfig(updates: Partial<ProjectConfig["site"]>) {
       if (!this.projectConfig) return;
 
@@ -216,6 +376,82 @@ export const useBuilderStore = defineStore("builder", {
             } as any;
           }
         });
+      }
+
+      this.pushHistory();
+    },
+
+    // --- Page Management Actions ---
+
+    addPage(id: string, name: string, template: any = "landing") {
+      if (!this.projectConfig) return;
+
+      // Inherit mode and stack from root project meta if available, else fallback to store state
+      const projectMode = this.projectConfig.meta?.mode || this.generation.mode;
+      const projectStack =
+        this.projectConfig.meta?.stack || this.generation.stack;
+
+      const newPage: PageConfig = {
+        template: template,
+        site: JSON.parse(JSON.stringify(this.projectConfig.site)),
+        sections: [],
+        meta: {
+          note: `/${id}`,
+          generatedAt: new Date().toISOString(),
+          mode: projectMode as any,
+          stack: projectStack as any,
+        },
+      };
+
+      if (!this.projectConfig.pages) {
+        this.projectConfig.pages = {};
+      }
+
+      this.projectConfig.pages[id] = newPage;
+      this.currentPageId = id;
+      this.pushHistory();
+    },
+
+    deletePage(id: string) {
+      if (!this.projectConfig || !this.projectConfig.pages) return;
+
+      // Don't allow deleting 'home' or the only page?
+      if (id === "home") {
+        console.warn("[Store] Cannot delete home page.");
+        return;
+      }
+
+      delete this.projectConfig.pages[id];
+
+      // If we deleted the current page, go home
+      if (this.currentPageId === id) {
+        this.currentPageId = "home";
+      }
+
+      this.pushHistory();
+    },
+
+    updatePageMeta(id: string, updates: Partial<PageConfig["meta"]>) {
+      if (!this.projectConfig?.pages?.[id]) return;
+
+      this.projectConfig.pages[id].meta = {
+        ...this.projectConfig.pages[id].meta,
+        ...updates,
+      };
+
+      this.pushHistory();
+    },
+
+    renamePage(oldId: string, newId: string) {
+      if (!this.projectConfig?.pages?.[oldId] || oldId === newId) return;
+      if (oldId === "home") return; // Home should stay home for now
+
+      const pageConfig = this.projectConfig.pages[oldId];
+      delete this.projectConfig.pages[oldId];
+      this.projectConfig.pages[newId] = pageConfig;
+
+      if (this.currentPageId === oldId) {
+        this.currentPageId = newId;
       }
 
       this.pushHistory();
@@ -283,6 +519,17 @@ export const useBuilderStore = defineStore("builder", {
 
     clearSelection() {
       this.selectedSectionId = undefined;
+    },
+
+    resetProject() {
+      this.projectConfig = null;
+      this.selectedSectionId = undefined;
+      this.history = [];
+      this.historyIndex = -1;
+      this.isPublished = false;
+      this.isEditMode = false;
+      this.currentPageId = "home";
+      this.generation.brief = "";
     },
   },
 });

@@ -86,9 +86,24 @@ async function fetchProducts() {
   error.value = null;
 
   try {
+    // 1. Check for manual items from builder first
+    if (props.section.items && props.section.items.length > 0) {
+      console.log("[ProductList] Using manual items from builder.");
+      products.value = props.section.items.map((item) => ({
+        id: item.id || Math.random().toString(36).substr(2, 9),
+        name: item.name || "Untitled Product",
+        price: item.price || "$0.00",
+        image: item.image || "/images/product-main.png", // Default image
+        link: item.link || "#",
+        description: item.description || "",
+      }));
+      loading.value = false;
+      return;
+    }
+
     const baseUrl = props.config?.backend?.wordpress?.baseUrl;
 
-    // If no WP URL, use mock
+    // If no WP URL and no manual items, use mock
     if (!baseUrl) {
       console.log("[ProductList] No WordPress Base URL, using mock.");
       products.value = mockProducts;
@@ -140,6 +155,15 @@ async function fetchProducts() {
 onMounted(() => {
   fetchProducts();
 });
+
+// Watch for section changes to update manual items in real-time
+watch(
+  () => props.section,
+  () => {
+    fetchProducts();
+  },
+  { deep: true }
+);
 </script>
 
 <template>
@@ -315,6 +339,11 @@ onMounted(() => {
                     class="font-medium transition-colors"
                     style="color: var(--text-primary)"
                     >{{ product.price }}</span
+                  >
+                  <span
+                    v-if="product.originalPrice"
+                    class="text-sm text-slate-400 line-through decoration-1"
+                    >{{ product.originalPrice }}</span
                   >
                 </div>
               </div>

@@ -225,9 +225,19 @@ export class GenerationService {
         const text = result.response.text();
         if (!text) throw new Error("Empty response");
 
-        const json = extractJson(text);
+        let json = extractJson(text);
 
-        // Auto-patch ID for better UX (optional, but keep for now)
+        // Defensive Wrapping: If AI returns just an array, wrap it as a PageConfig
+        if (Array.isArray(json)) {
+          console.log(`[Auto-Repair] Wrapping array as sections for ${pageId}`);
+          json = {
+            template: opts.template,
+            site: { siteName: globalContext.siteName || "Generated Site" },
+            sections: json,
+          };
+        }
+
+        // Auto-patch ID for better UX
         if (json.sections && Array.isArray(json.sections)) {
           json.sections.forEach((sec: any, idx: number) => {
             if (!sec.id) sec.id = `${sec.type || "section"}-${idx + 1}`;

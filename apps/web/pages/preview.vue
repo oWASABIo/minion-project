@@ -50,14 +50,28 @@ onMounted(() => {
   // Notify parent that we are ready
   window.parent.postMessage({ type: "ready" }, "*");
 
-  // Visual Editing Click Handler
+  // Visual Editing & Navigation Interception
   window.addEventListener(
     "click",
     (e) => {
-      // Only intercept if in edit mode
-      if (!isEditMode.value) return;
-
       const target = e.target as HTMLElement;
+      const link = target.closest("a") as HTMLAnchorElement;
+
+      // Intercept ALL internal links in the preview to prevent direct navigation
+      if (link) {
+        const href = link.getAttribute("href");
+        if (href && (href.startsWith("/") || href.startsWith("#"))) {
+          e.preventDefault();
+
+          // Only navigate if it's an internal path (not just a hash)
+          if (href.startsWith("/") && href !== "#") {
+            window.parent.postMessage({ type: "navigate", path: href }, "*");
+          }
+        }
+      }
+
+      // Only intercept field selection if in edit mode
+      if (!isEditMode.value) return;
 
       // Find closest field (up to 3 levels)
       const fieldEl = target.closest("[data-sb-field]") as HTMLElement;
@@ -68,10 +82,6 @@ onMounted(() => {
       const sectionId = sectionEl?.getAttribute("data-sb-section-id");
 
       if (fieldEl && sectionId) {
-        // Prevent default navigation for links, but allow editing
-        if (target.tagName === "A") {
-          e.preventDefault();
-        }
         e.stopPropagation();
 
         const fieldKey = fieldEl.getAttribute("data-sb-field");
@@ -79,7 +89,6 @@ onMounted(() => {
 
         console.log("[Preview] Field Selected:", sectionId, fieldKey);
 
-        // Notify parent to open sidebar
         // Notify parent to open sidebar
         window.parent.postMessage(
           {
@@ -110,8 +119,6 @@ onMounted(() => {
         // Handle Keydown (Standardize Enter)
         const onKeydown = (ev: KeyboardEvent) => {
           if (ev.key === "Enter") {
-            // For multiline-likely elements, Shift+Enter or just Enter is fine.
-            // But for titles/eyebrows, we might want to save on Enter.
             const isMultiline =
               fieldEl.tagName === "P" ||
               fieldEl.classList.contains("leading-relaxed");

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { CtaSection as CtaSectionType } from "@minions/shared";
+import { useCart } from "~/composables/useCart";
 
 const props = defineProps<{
   section: CtaSectionType;
 }>();
+const { addToCart } = useCart();
 </script>
 
 <template>
@@ -52,23 +54,54 @@ const props = defineProps<{
         </p>
 
         <div class="mt-10 flex items-center justify-center gap-x-6">
-          <RouterLink
-            v-if="section.primaryCta && section.primaryCta.href"
-            :to="section.primaryCta.href"
-            class="rounded-full bg-white px-8 py-3.5 text-sm font-bold text-indigo-600 shadow-xl hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white transition-all hover:scale-105"
-            data-sb-field="primaryCta.label"
-          >
-            {{ section.primaryCta.label }}
-          </RouterLink>
-          <RouterLink
-            v-if="section.secondaryCta && section.secondaryCta.href"
-            :to="section.secondaryCta.href"
-            class="text-sm font-semibold leading-6 text-white hover:text-indigo-100 flex items-center gap-2 transition-colors"
-            data-sb-field="secondaryCta.label"
-          >
-            {{ section.secondaryCta.label }}
-            <span aria-hidden="true">&rarr;</span>
-          </RouterLink>
+          <!-- Primary CTA -->
+          <template v-if="section.primaryCta">
+            <button
+              v-if="section.primaryCta.action === 'add-to-cart'"
+              @click="
+                addToCart({
+                  id: section.primaryCta.productId || 'cta-primary',
+                  name: section.primaryCta.label,
+                  price: '',
+                })
+              "
+              class="rounded-full bg-white px-8 py-3.5 text-sm font-bold text-indigo-600 shadow-xl hover:bg-indigo-50 transition-all hover:scale-105 active:scale-95"
+            >
+              {{ section.primaryCta.label }}
+            </button>
+            <RouterLink
+              v-else-if="section.primaryCta.href"
+              :to="section.primaryCta.href"
+              class="rounded-full bg-white px-8 py-3.5 text-sm font-bold text-indigo-600 shadow-xl hover:bg-indigo-50 transition-all hover:scale-105"
+            >
+              {{ section.primaryCta.label }}
+            </RouterLink>
+          </template>
+
+          <!-- Secondary CTA -->
+          <template v-if="section.secondaryCta">
+            <button
+              v-if="section.secondaryCta.action === 'add-to-cart'"
+              @click="
+                addToCart({
+                  id: section.secondaryCta.productId || 'cta-secondary',
+                  name: section.secondaryCta.label,
+                  price: '',
+                })
+              "
+              class="text-sm font-semibold leading-6 text-white hover:text-indigo-100 flex items-center gap-2 transition-all active:scale-95"
+            >
+              {{ section.secondaryCta.label }}
+            </button>
+            <RouterLink
+              v-else-if="section.secondaryCta.href"
+              :to="section.secondaryCta.href"
+              class="text-sm font-semibold leading-6 text-white hover:text-indigo-100 flex items-center gap-2 transition-colors"
+            >
+              {{ section.secondaryCta.label }}
+              <span aria-hidden="true">&rarr;</span>
+            </RouterLink>
+          </template>
         </div>
       </div>
     </div>
