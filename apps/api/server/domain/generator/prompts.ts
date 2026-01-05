@@ -40,7 +40,8 @@ export function systemPrompt(spec: templateSpec, stack: Stack) {
     "",
     "Instructions:",
     "1. Respect User Brief implicitly and create high-quality, professional copy.",
-    "2. Output strictly JSON matching the PageConfig structure.",
+    "2. Output strictly JSON matching the PageConfig structure. MUST include root fields 'template', 'site', and 'sections'.",
+    '   Example Structure: { "template": "...", "site": { "siteName": "..." }, "sections": [...] }',
     "3. No markdown fences. No '```json'.",
   ].join("\n");
 }

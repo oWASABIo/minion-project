@@ -6,26 +6,32 @@ export interface CartItem {
   price: string;
   image: string;
   quantity: number;
+  size?: string;
 }
 
 export const useCart = () => {
   const items = useState<CartItem[]>("cart-items", () => []);
   const isDrawerOpen = useState<boolean>("cart-drawer-open", () => false);
 
-  const addToCart = (product: any) => {
-    // Handle different product structures (Store API vs Mock)
-    const productId = product.id || product.mockProduct?.sku || Date.now();
-    const existing = items.value.find((i) => i.id === productId);
+  const addToCart = (product: any, quantity: number = 1, size?: string) => {
+    // Unique ID for items with different sizes
+    const baseId = product.id || product.sku || Date.now();
+    const itemKey = size ? `${baseId}-${size}` : `${baseId}`;
+
+    const existing = items.value.find((i) =>
+      size ? i.id === baseId && i.size === size : i.id === baseId
+    );
 
     if (existing) {
-      existing.quantity++;
+      existing.quantity += quantity;
     } else {
       items.value.push({
-        id: productId,
-        name: product.name || product.mockProduct?.name || "Product",
-        price: product.price || product.mockProduct?.price || "$0",
-        image: product.images?.[0] || product.mockProduct?.images?.[0] || "",
-        quantity: 1,
+        id: baseId,
+        name: product.name || "Product",
+        price: product.price || "$0",
+        image: product.images?.[0] || "",
+        quantity: quantity,
+        size: size,
       });
     }
 

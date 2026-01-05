@@ -11,7 +11,11 @@ import {
   LinkIcon,
   ArrowTopRightOnSquareIcon,
   ClipboardDocumentIcon,
+  PlusIcon,
+  SquaresPlusIcon,
 } from "@heroicons/vue/24/outline";
+import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/vue";
+import PageSettingsModal from "~/components/builder/PageSettingsModal.vue";
 
 // Refactored Components
 import ConfigSidebar from "~/components/builder/ConfigSidebar.vue";
@@ -83,6 +87,9 @@ const progressMessage = ref("");
 const error = ref<string | null>(null);
 const brief = ref("");
 
+const showPageSettings = ref(false);
+const isEditingSiteConfig = ref(false);
+
 const isJsonExpanded = ref(false);
 
 // Utils
@@ -117,29 +124,38 @@ function onMessage(event: MessageEvent) {
         sectionEditorRef.value.focusField(data.field);
       }
     });
-  } else if (data.type === "updateField") {
-    // Inline Edit
     store.updateSectionContent(
       store.currentPageId!,
       data.sectionId,
       data.field,
       data.value
     );
+  } else if (data.type === "navigate") {
+    // Find page by path
+    const targetPageId = Object.keys(store.projectConfig?.pages || {}).find(
+      (id) => store.projectConfig?.pages[id].meta?.note === data.path
+    );
+    if (targetPageId) {
+      store.currentPageId = targetPageId;
+    }
   }
 }
 
 watch(
   () => [store.projectConfig, isEditMode.value, selectedSectionId.value],
   ([newConfig], [oldConfig]) => {
-    // console.log("[Builder] Watch triggered for syncPreview");
     syncPreview();
   },
   { deep: true }
 );
 
-onMounted(() => {
-  window.addEventListener("message", onMessage);
-});
+// Watch for page change to force sync
+watch(
+  () => store.currentPageId,
+  () => {
+    forceSyncPreview();
+  }
+);
 
 onUnmounted(() => {
   window.removeEventListener("message", onMessage);
@@ -402,6 +418,9 @@ onMounted(() => {
   if (route.query.id) {
     loadProject(route.query.id as string);
   } else {
+    // Reset store for fresh start if no ID query
+    store.resetProject();
+
     // Handle params from Examples/Explore page
     if (route.query.template) {
       const t = route.query.template as string;
@@ -413,6 +432,8 @@ onMounted(() => {
       store.generation.brief = route.query.brief as string;
     }
   }
+
+  window.addEventListener("message", onMessage);
 });
 
 // JSON Export
@@ -507,7 +528,8 @@ const publishLoading = ref(false);
 const exportTab = ref<"quick-setup" | "json">("quick-setup");
 const liveUrl = computed(() => {
   if (import.meta.client) {
-    return `${window.location.origin}/p/${route.query.id}`;
+    // We point to /preview for the builder so we can intercept navigation
+    return `${window.location.origin}/preview`;
   }
   return "";
 });
@@ -612,7 +634,14 @@ async function handleConfirmPublish() {
       @close="showPublishConfirm = false"
       @confirm="handleConfirmPublish"
     />
+
+    <PageSettingsModal
+      :isOpen="showPageSettings"
+      @close="showPageSettings = false"
+    />
+
     <SiteHeader :config="pageConfig" />
+
     <div class="mx-auto max-w-[1600px] px-6 py-10 pt-24 space-y-8">
       <!-- 1. Configuration Form -->
       <ConfigSidebar
@@ -650,20 +679,40 @@ async function handleConfirmPublish() {
             </button>
           </div>
           <div class="rounded-xl border border-white/10 bg-white/5 p-4">
-            <div v-if="selectedSection">
+            <div v-if="selectedSection || isEditingSiteConfig">
               <SectionEditor
                 ref="sectionEditorRef"
-                @close="selectedSectionId = undefined"
+                :edit-site-config="isEditingSiteConfig"
+                @close="
+                  selectedSectionId = undefined;
+                  isEditingSiteConfig = false;
+                "
               />
             </div>
             <div v-else>
               <div class="mb-6">
                 <!-- Structure / Reordering -->
-                <h3
-                  class="text-xs font-semibold uppercase tracking-[0.16em] text-white mb-3"
-                >
-                  Structure
-                </h3>
+                <div class="flex items-center justify-between mb-3">
+                  <h3
+                    class="text-xs font-semibold uppercase tracking-[0.16em] text-white"
+                  >
+                    Structure
+                  </h3>
+                  <button
+                    @click="isEditingSiteConfig = true"
+                    class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all"
+                    :class="
+                      isEditingSiteConfig
+                        ? 'bg-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]'
+                        : 'text-slate-500 hover:text-slate-300 bg-white/5'
+                    "
+                  >
+                    <Cog6ToothIcon
+                      class="h-3 w-3 transition-transform group-hover:rotate-45"
+                    />
+                    Site Settings
+                  </button>
+                </div>
                 <draggable
                   v-model="currentSections"
                   item-key="id"
@@ -722,6 +771,141 @@ async function handleConfirmPublish() {
                     </div>
                   </template>
                 </draggable>
+
+                <div
+                  v-if="currentSections.length === 0"
+                  class="py-12 px-4 text-center border-2 border-dashed border-white/5 rounded-xl bg-slate-900/30"
+                >
+                  <div class="mb-3 flex justify-center text-slate-600">
+                    <SquaresPlusIcon class="h-10 w-10 opacity-20" />
+                  </div>
+                  <p class="text-sm text-slate-400 mb-4 font-medium">
+                    This page is empty. Start adding sections to build your
+                    content.
+                  </p>
+                </div>
+
+                <div class="mt-4">
+                  <Menu as="div" class="relative inline-block w-full text-left">
+                    <MenuButton
+                      class="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600/10 border border-indigo-500/20 px-4 py-2 text-sm font-bold text-indigo-400 hover:bg-indigo-600/20 hover:border-indigo-500/40 transition-all group"
+                    >
+                      <PlusIcon
+                        class="h-4 w-4 group-hover:scale-110 transition-transform"
+                      />
+                      Add Section
+                    </MenuButton>
+
+                    <transition
+                      enter-active-class="transition duration-100 ease-out"
+                      enter-from-class="transform scale-95 opacity-0"
+                      enter-to-class="transform scale-100 opacity-100"
+                      leave-active-class="transition duration-75 ease-in"
+                      leave-from-class="transform scale-100 opacity-100"
+                      leave-to-class="transform scale-95 opacity-0"
+                    >
+                      <MenuItems
+                        class="absolute right-0 bottom-full mb-2 w-56 origin-bottom-right divide-y divide-white/5 rounded-xl bg-slate-900 border border-white/10 shadow-2xl focus:outline-none z-50 overflow-hidden"
+                      >
+                        <div class="p-2 bg-white/5 px-3">
+                          <span
+                            class="text-[9px] font-black uppercase tracking-widest text-slate-500"
+                            >Pick Section Type</span
+                          >
+                        </div>
+                        <div
+                          class="max-h-80 overflow-y-auto p-1 custom-scrollbar"
+                        >
+                          <!-- General -->
+                          <div class="p-1 px-2">
+                            <span
+                              class="text-[8px] font-bold text-slate-500 uppercase tracking-wider"
+                              >General</span
+                            >
+                          </div>
+                          <MenuItem
+                            v-for="type in [
+                              'hero',
+                              'features',
+                              'cta',
+                              'testimonials',
+                              'stats',
+                              'team',
+                            ]"
+                            :key="type"
+                            v-slot="{ active }"
+                          >
+                            <button
+                              @click="store.addSection(type)"
+                              class="flex w-full items-center rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+                              :class="
+                                active
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'text-slate-300 hover:text-white'
+                              "
+                            >
+                              <span class="capitalize">{{ type }}</span>
+                            </button>
+                          </MenuItem>
+
+                          <!-- Marketing/Sales -->
+                          <div class="p-1 px-2 mt-1 border-t border-white/5">
+                            <span
+                              class="text-[8px] font-bold text-slate-500 uppercase tracking-wider"
+                              >Marketing & Sales</span
+                            >
+                          </div>
+                          <MenuItem
+                            v-for="type in ['pricing', 'faq']"
+                            :key="type"
+                            v-slot="{ active }"
+                          >
+                            <button
+                              @click="store.addSection(type)"
+                              class="flex w-full items-center rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+                              :class="
+                                active
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'text-slate-300 hover:text-white'
+                              "
+                            >
+                              <span class="capitalize">{{ type }}</span>
+                            </button>
+                          </MenuItem>
+
+                          <!-- Shop -->
+                          <div class="p-1 px-2 mt-1 border-t border-white/5">
+                            <span
+                              class="text-[8px] font-bold text-slate-500 uppercase tracking-wider"
+                              >Shop</span
+                            >
+                          </div>
+                          <MenuItem
+                            v-for="type in ['productList', 'productDetail']"
+                            :key="type"
+                            v-slot="{ active }"
+                          >
+                            <button
+                              @click="store.addSection(type)"
+                              class="flex w-full items-center rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+                              :class="
+                                active
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'text-slate-300 hover:text-white'
+                              "
+                            >
+                              <span class="capitalize">{{
+                                type === "productList"
+                                  ? "Product List"
+                                  : "Product Detail"
+                              }}</span>
+                            </button>
+                          </MenuItem>
+                        </div>
+                      </MenuItems>
+                    </transition>
+                  </Menu>
+                </div>
               </div>
 
               <h3
@@ -746,14 +930,23 @@ async function handleConfirmPublish() {
                 v-for="pg in pagesList"
                 :key="pg.id"
                 @click="currentPageId = pg.id"
-                class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-white/5"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all border border-white/5 active:scale-95"
                 :class="
                   currentPageId === pg.id
-                    ? 'bg-indigo-500 text-white border-indigo-400'
-                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    ? 'bg-indigo-500 text-white border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)]'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
                 "
               >
                 {{ pg.id }}
+              </button>
+
+              <button
+                @click="showPageSettings = true"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-slate-400 border border-white/5 hover:bg-white/10 hover:text-white transition-all flex items-center gap-1.5"
+                title="Manage Pages"
+              >
+                <PlusIcon class="h-3 w-3" />
+                Manage
               </button>
             </div>
           </div>

@@ -82,6 +82,9 @@ function validateSection(
     "pricing",
     "stats",
     "team",
+    "productList",
+    "productDetail",
+    "cli",
   ];
 
   if (!section.type) {

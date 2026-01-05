@@ -8,6 +8,20 @@ export function useNavigation(config: ComputedRef<PageConfig>) {
   const tagline = computed(() => config.value.site?.tagline || "");
 
   const menuItems = computed(() => {
+    // 0. Use Custom Menu Items if provided in SiteConfig
+    if (
+      config.value.site?.menuItems &&
+      config.value.site.menuItems.length > 0
+    ) {
+      return config.value.site.menuItems.map((item, index) => ({
+        key: `custom-${index}`,
+        label: item.label,
+        href: item.href,
+        action: item.action,
+        productId: item.productId,
+      }));
+    }
+
     // 1. Use Real Pages if available
     if ((config.value as any).pages) {
       const pages = (config.value as any).pages;
@@ -68,7 +82,12 @@ export function useNavigation(config: ComputedRef<PageConfig>) {
     ];
   });
 
-  const showCart = computed(() => config.value.template === "ecommerce");
+  const showCart = computed(() => {
+    if (config.value.site?.showCart !== undefined) {
+      return config.value.site.showCart;
+    }
+    return config.value.template === "ecommerce";
+  });
 
   const secondaryCta = computed(() => {
     const template = config.value.template;

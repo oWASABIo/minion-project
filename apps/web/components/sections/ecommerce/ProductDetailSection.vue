@@ -15,6 +15,10 @@ const productId = route.params.id || "1"; // Fallback to '1' if no ID
 const product = ref<any>(null);
 const loading = ref(true);
 
+// Selection State
+const selectedSize = ref("M");
+const selectedQuantity = ref(1);
+
 // Mock Single Product
 const mockProduct = {
   id: 1,
@@ -52,9 +56,28 @@ const mockProduct = {
 async function fetchProduct() {
   loading.value = true;
   try {
+    // 1. Check for manual product from builder first
+    if (props.section.product) {
+      console.log("[ProductDetail] Using manual product from builder.");
+      const p = props.section.product;
+      product.value = {
+        ...p,
+        id: productId, // Keep the ID from route if possible
+        images: p.image
+          ? [p.image] // Prioritize single image from editor if set
+          : p.images && p.images.length > 0
+          ? p.images
+          : ["/images/product-main.png"], // Default fallback
+      };
+      loading.value = false;
+      return;
+    }
+
     const baseUrl = props.config?.backend?.wordpress?.baseUrl;
     if (!baseUrl) {
-      console.log("[ProductDetail] No WP URL, using mock.");
+      console.log(
+        "[ProductDetail] No WP URL and no manual product, using mock."
+      );
       await new Promise((r) => setTimeout(r, 500)); // Simulate delay
       product.value = mockProduct;
       return;
@@ -107,6 +130,15 @@ async function fetchProduct() {
 onMounted(() => {
   fetchProduct();
 });
+
+// Watch for section changes to update manual product in real-time
+watch(
+  () => props.section,
+  () => {
+    fetchProduct();
+  },
+  { deep: true }
+);
 
 // Update SEO Meta when product is loaded
 watch(
@@ -242,8 +274,11 @@ watch(
               >
                 {{ product.price }}
               </span>
-              <span class="text-xl text-slate-400 line-through decoration-2">
-                $500.00
+              <span
+                v-if="product.originalPrice"
+                class="text-xl text-slate-400 line-through decoration-2"
+              >
+                {{ product.originalPrice }}
               </span>
             </div>
 
@@ -264,28 +299,25 @@ watch(
                 >
                 <div class="flex flex-wrap gap-3">
                   <button
-                    class="w-12 h-12 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center font-medium hover:border-indigo-600 hover:text-indigo-600 transition-all"
+                    v-for="size in ['S', 'M', 'L', 'XL']"
+                    :key="size"
+                    @click="selectedSize = size"
+                    class="w-12 h-12 rounded-xl border flex items-center justify-center font-bold shadow-sm transition-all"
+                    :class="
+                      selectedSize === size
+                        ? 'border-indigo-600 border-2 text-indigo-600'
+                        : 'border-slate-200 dark:border-white/10 hover:border-indigo-600 hover:text-indigo-600'
+                    "
+                    :style="
+                      selectedSize === size
+                        ? {
+                            borderColor: 'var(--color-primary)',
+                            color: 'var(--color-primary)',
+                          }
+                        : {}
+                    "
                   >
-                    S
-                  </button>
-                  <button
-                    class="w-12 h-12 rounded-xl border-2 flex items-center justify-center font-bold shadow-sm"
-                    :style="{
-                      borderColor: 'var(--color-primary)',
-                      color: 'var(--color-primary)',
-                    }"
-                  >
-                    M
-                  </button>
-                  <button
-                    class="w-12 h-12 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center font-medium hover:border-indigo-600 hover:text-indigo-600 transition-all"
-                  >
-                    L
-                  </button>
-                  <button
-                    class="w-12 h-12 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center font-medium hover:border-indigo-600 hover:text-indigo-600 transition-all"
-                  >
-                    XL
+                    {{ size }}
                   </button>
                 </div>
               </div>
@@ -300,19 +332,23 @@ watch(
                   }"
                 >
                   <button
+                    @click="selectedQuantity > 1 && selectedQuantity--"
                     class="px-5 py-4 text-xl hover:text-indigo-600 transition-colors"
                   >
                     -
                   </button>
-                  <span class="w-8 text-center font-bold">1</span>
+                  <span class="w-8 text-center font-bold">{{
+                    selectedQuantity
+                  }}</span>
                   <button
+                    @click="selectedQuantity++"
                     class="px-5 py-4 text-xl hover:text-indigo-600 transition-colors"
                   >
                     +
                   </button>
                 </div>
                 <button
-                  @click="addToCart(product)"
+                  @click="addToCart(product, selectedQuantity, selectedSize)"
                   class="flex-1 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:opacity-90 transition-all shadow-xl active:scale-95"
                   :style="{
                     backgroundColor: 'var(--color-primary)',

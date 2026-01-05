@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { HeroSection as HeroSectionType } from "@minions/shared";
+import { useCart } from "~/composables/useCart";
 
 const props = defineProps<{ section: HeroSectionType }>();
+const { addToCart } = useCart();
 
 const isCenter = computed(() => props.section.variant !== "split");
 </script>
@@ -24,11 +26,11 @@ const isCenter = computed(() => props.section.variant !== "split");
     }"
   >
     <!-- Background for Glass Variant -->
-    <div
-      v-if="section.variant === 'glass' && section.image"
-      class="absolute inset-0 z-0"
-    >
-      <img :src="section.image" class="w-full h-full object-cover" />
+    <div v-if="section.variant === 'glass'" class="absolute inset-0 z-0">
+      <img
+        :src="section.image || '/images/hero-minions.png'"
+        class="w-full h-full object-cover"
+      />
       <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-md"></div>
     </div>
 
@@ -79,29 +81,69 @@ const isCenter = computed(() => props.section.variant !== "split");
           class="mt-8 flex items-center gap-x-4"
           :class="[isCenter ? 'justify-center' : '']"
         >
-          <RouterLink
-            v-if="section.primaryCta && section.primaryCta.href"
-            :to="section.primaryCta.href"
-            class="bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all"
-            :style="{ borderRadius: 'var(--radius-ui, 0.5rem)' }"
-            data-sb-field="primaryCta.label"
-          >
-            {{ section.primaryCta.label }}
-          </RouterLink>
-          <RouterLink
-            v-if="section.secondaryCta && section.secondaryCta.href"
-            :to="section.secondaryCta.href"
-            class="text-sm font-semibold leading-6 px-4 py-2 hover:text-slate-900 dark:hover:text-white transition-colors"
-            :class="
-              section.variant === 'glass'
-                ? 'text-white hover:bg-white/10'
-                : 'text-slate-600 dark:text-slate-300'
-            "
-            :style="{ borderRadius: 'var(--radius-ui, 0.5rem)' }"
-            data-sb-field="secondaryCta.label"
-          >
-            {{ section.secondaryCta.label }} <span aria-hidden="true">→</span>
-          </RouterLink>
+          <!-- Primary CTA -->
+          <template v-if="section.primaryCta">
+            <button
+              v-if="section.primaryCta.action === 'add-to-cart'"
+              @click="
+                addToCart({
+                  id: section.primaryCta.productId || 'hero-primary',
+                  name: section.primaryCta.label,
+                  price: '',
+                  image: section.image,
+                })
+              "
+              class="bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all active:scale-95"
+              :style="{ borderRadius: 'var(--radius-ui, 0.5rem)' }"
+            >
+              {{ section.primaryCta.label }}
+            </button>
+            <RouterLink
+              v-else-if="section.primaryCta.href"
+              :to="section.primaryCta.href"
+              class="bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all"
+              :style="{ borderRadius: 'var(--radius-ui, 0.5rem)' }"
+            >
+              {{ section.primaryCta.label }}
+            </RouterLink>
+          </template>
+
+          <!-- Secondary CTA -->
+          <template v-if="section.secondaryCta">
+            <button
+              v-if="section.secondaryCta.action === 'add-to-cart'"
+              @click="
+                addToCart({
+                  id: section.secondaryCta.productId || 'hero-secondary',
+                  name: section.secondaryCta.label,
+                  price: '',
+                  image: section.image,
+                })
+              "
+              class="text-sm font-semibold leading-6 px-4 py-2 hover:bg-white/10 transition-all active:scale-95"
+              :class="
+                section.variant === 'glass'
+                  ? 'text-white'
+                  : 'text-slate-600 dark:text-slate-300'
+              "
+              :style="{ borderRadius: 'var(--radius-ui, 0.5rem)' }"
+            >
+              {{ section.secondaryCta.label }}
+            </button>
+            <RouterLink
+              v-else-if="section.secondaryCta.href"
+              :to="section.secondaryCta.href"
+              class="text-sm font-semibold leading-6 px-4 py-2 hover:bg-white/10 transition-all"
+              :class="
+                section.variant === 'glass'
+                  ? 'text-white'
+                  : 'text-slate-600 dark:text-slate-300'
+              "
+              :style="{ borderRadius: 'var(--radius-ui, 0.5rem)' }"
+            >
+              {{ section.secondaryCta.label }} <span aria-hidden="true">→</span>
+            </RouterLink>
+          </template>
         </div>
       </div>
 
@@ -168,21 +210,12 @@ const isCenter = computed(() => props.section.variant !== "split");
 
         <!-- Image Standard Variant -->
         <img
-          v-else-if="section.image"
-          :src="section.image"
+          v-else
+          :src="section.image || '/images/hero-minions.png'"
           alt="Hero Image"
           class="shadow-xl w-full object-cover aspect-[4/3] bg-slate-800 transition-all duration-700 hover:scale-[1.02]"
           :style="{ borderRadius: 'var(--radius-ui, 1rem)' }"
         />
-        <div
-          v-else
-          class="border border-white/10 bg-white/5 p-6 aspect-[4/3] flex items-center justify-center text-center"
-          :style="{ borderRadius: 'var(--radius-ui, 1rem)' }"
-        >
-          <p class="text-sm text-slate-400">
-            Generated Visual will appear here
-          </p>
-        </div>
       </div>
     </div>
   </section>

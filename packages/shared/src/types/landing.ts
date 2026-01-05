@@ -16,6 +16,8 @@ export type Cmstemplate = "wordpress" | string;
 export type CtaLink = {
   label: string;
   href: string;
+  action?: "link" | "add-to-cart";
+  productId?: string | number; // Required if action is add-to-cart
 };
 
 export type SiteConfig = {
@@ -24,6 +26,10 @@ export type SiteConfig = {
   primaryColor?: string;
   themeMode?: "light" | "dark";
   fontFamily?: string;
+
+  // ✅ Navigation
+  menuItems?: CtaLink[];
+  showCart?: boolean;
 
   // ✅ New Design Tokens
   spacing?: number; // Global section spacing (0-10)
@@ -135,6 +141,16 @@ export type ProductListSection = SectionBase & {
   title?: string;
   subtitle?: string;
 
+  // Manual items added via builder
+  items?: Array<{
+    id?: string | number;
+    name: string;
+    price: string;
+    image?: string;
+    link?: string;
+    description?: string;
+  }>;
+
   // Endpoint configuration (optional, defaults to WC/WP standard)
   endpoint?: string;
 
@@ -145,6 +161,18 @@ export type ProductListSection = SectionBase & {
 
 export type ProductDetailSection = SectionBase & {
   type: "productDetail";
+
+  // Manual product added via builder
+  product?: {
+    name: string;
+    price: string;
+    image?: string;
+    images?: string[];
+    description?: string;
+    sku?: string;
+    cta?: CtaLink;
+  };
+
   showRelated?: boolean; // default true
   showReviews?: boolean; // default true
 };
